@@ -80,25 +80,34 @@ class DatabaseService {
     }
 
     // Students
-    async getStudents() {
+    async getStudents(subjectId) {
+        if (!subjectId) return [];
         if (this.useFirebase && this.db) {
-            const snapshot = await this.db.collection('students').get();
+            const snapshot = await this.db.collection(`subjects/${subjectId}/students`).get();
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } else {
-            return JSON.parse(localStorage.getItem('students') || '[]');
+            return JSON.parse(localStorage.getItem(`students_${subjectId}`) || '[]');
         }
     }
 
-    async saveStudents(studentsArray) {
+    async saveStudents(subjectId, studentsArray) {
+        if (!subjectId) return;
         if (this.useFirebase && this.db) {
             const batch = this.db.batch();
+            
+            // First, clear existing students for this subject to do a full replace
+            const snapshot = await this.db.collection(`subjects/${subjectId}/students`).get();
+            snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            
+            // Then, add the new ones
             studentsArray.forEach(student => {
-                const studentRef = this.db.collection('students').doc(student.id.toString());
+                const studentRef = this.db.collection(`subjects/${subjectId}/students`).doc(student.id.toString());
                 batch.set(studentRef, student);
             });
+            
             await batch.commit();
         } else {
-            localStorage.setItem('students', JSON.stringify(studentsArray));
+            localStorage.setItem(`students_${subjectId}`, JSON.stringify(studentsArray));
         }
     }
 

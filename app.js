@@ -98,7 +98,6 @@ async function init() {
 }
 
 async function loadData() {
-    state.students = await window.dbService.getStudents();
     state.subjects = await window.dbService.getSubjects();
     
     if (state.subjects.length > 0 && !state.currentSubject) {
@@ -106,6 +105,7 @@ async function loadData() {
     }
     
     if (state.currentSubject) {
+        state.students = await window.dbService.getStudents(state.currentSubject);
         state.attendance = await window.dbService.getAllAttendance(state.currentSubject);
         if (window.dbService.useFirebase) {
             state.materials = await window.dbService.getMaterials(state.currentSubject);
@@ -147,12 +147,11 @@ function setupEvents() {
                 els.newSubjectInput.value = '';
                 if(els.newStageInput) els.newStageInput.value = '';
                 
-                if(!state.currentSubject) {
-                    state.currentSubject = newSubject.id;
-                    await loadData();
-                }
+                // الانتقال فوراً للمادة والمرحلة الجديدة التي تم إنشاؤها
+                state.currentSubject = newSubject.id;
+                await loadData();
                 
-                showToast('تمت إضافة المادة والمرحلة بنجاح', 'success');
+                showToast('تمت إضافة المادة والمرحلة بنجاح والانتقال إليها', 'success');
                 renderAll();
             } catch (error) {
                 console.error(error);
@@ -225,7 +224,7 @@ function setupEvents() {
                 const toAdd = newStudents.filter(ns => !currentIds.includes(ns.id));
                 state.students = [...state.students, ...toAdd];
                 
-                await window.dbService.saveStudents(state.students);
+                await window.dbService.saveStudents(state.currentSubject, state.students);
                 showToast(`تم استيراد ${toAdd.length} طالب بنجاح`, 'success');
                 renderAll();
             } else {
@@ -409,13 +408,26 @@ function setupEvents() {
         }
     });
 
-    els.exportSubjectSelect.addEventListener('change', () => {
-        const subjectId = els.exportSubjectSelect.value;
+    els.exportSubjectSelect.addEventListener('change', async (e) => {
+        const subjectId = e.target.value;
+        
+        // Sync with global subject
+        els.globalSubjectSelect.value = subjectId;
+        state.currentSubject = subjectId;
+        
         if (subjectId) {
             const subject = state.subjects.find(s => s.id === subjectId);
             sheetsUrlInput.value = subject ? (subject.sheetsUrl || '') : '';
+            
+            showLoader();
+            await loadData();
+            hideLoader();
         } else {
             sheetsUrlInput.value = '';
+            state.students = [];
+            state.attendance = {};
+            state.materials = [];
+            renderAll();
         }
         saveSheetsUrlBtn.style.display = 'none';
     });
