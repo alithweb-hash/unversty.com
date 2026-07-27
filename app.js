@@ -24,6 +24,7 @@ const els = {
     
     // Subjects
     newSubjectInput: document.getElementById('newSubjectInput'),
+    newStageInput: document.getElementById('newStageInput'),
     addSubjectBtn: document.getElementById('addSubjectBtn'),
     subjectsListContainer: document.getElementById('subjectsListContainer'),
     globalSubjectSelect: document.getElementById('globalSubjectSelect'),
@@ -57,6 +58,10 @@ const els = {
     
     // Search
     searchInput: document.getElementById('searchInput'),
+    
+    // Warnings
+    warningsTableBody: document.getElementById('warningsTableBody'),
+    exportWarningsBtn: document.getElementById('exportWarningsBtn'),
     
     // Materials
     currNameInput: document.getElementById('currNameInput'),
@@ -131,28 +136,33 @@ function setupEvents() {
     // Subject Management
     els.addSubjectBtn.addEventListener('click', async () => {
         const name = els.newSubjectInput.value.trim();
-        if(!name) return;
-        showLoader();
-        try {
-            const newSub = { id: `SUB-${Date.now()}`, name };
-            state.subjects.push(newSub);
-            await window.dbService.saveSubjects(state.subjects);
-            els.newSubjectInput.value = '';
-            
-            if (!state.currentSubject) {
-                state.currentSubject = newSub.id;
-                await loadData();
+        const stage = (els.newStageInput ? els.newStageInput.value.trim() : '');
+        
+        if (name) {
+            const newSubject = { id: `SUB-${Date.now()}`, name: name, stage: stage };
+            state.subjects.push(newSubject);
+            showLoader();
+            try {
+                await window.dbService.saveSubjects(state.subjects);
+                els.newSubjectInput.value = '';
+                if(els.newStageInput) els.newStageInput.value = '';
+                
+                if(!state.currentSubject) {
+                    state.currentSubject = newSubject.id;
+                    await loadData();
+                }
+                
+                showToast('تمت إضافة المادة والمرحلة بنجاح', 'success');
+                renderAll();
+            } catch (error) {
+                console.error(error);
+                showToast('حدث خطأ أثناء حفظ المادة', 'error');
+                state.subjects.pop();
+            } finally {
+                hideLoader();
             }
-            
-            showToast('تمت إضافة المادة بنجاح', 'success');
-            renderAll();
-        } catch (error) {
-            console.error(error);
-            showToast('حدث خطأ في الاتصال بقاعدة البيانات. تأكد من تفعيل Firestore.', 'error');
-            // Remove the added subject from local state since it failed
-            state.subjects.pop();
-        } finally {
-            hideLoader();
+        } else {
+            showToast('الرجاء كتابة اسم المادة', 'error');
         }
     });
 
@@ -277,6 +287,93 @@ function setupEvents() {
 
     els.exportExcelBtn.addEventListener('click', () => handleExport('excel'));
     els.exportSheetsBtn.addEventListener('click', () => handleExport('sheets'));
+    
+    // Export Warnings
+    if (els.exportWarningsBtn) {
+        els.exportWarningsBtn.addEventListener('click', async () => {
+            if (!state.currentSubject) {
+                showToast('الرجاء اختيار المادة أولاً', 'error');
+                return;
+            }
+            
+            // Gather warning data
+            const dangerStudents = [];
+            state.students.forEach((student, index) => {
+                const abs = calculateAbsence(student.id);
+                if (parseFloat(abs.percentageCurrent) >= 20) {
+                    dangerStudents.push({
+                        seq: index + 1,
+                        name: student.name,
+                        absentCount: abs.count,
+                        excusedCount: abs.excused,
+                        percentageCurrent: abs.percentageCurrent
+                    });
+                }
+            });
+            
+            if (dangerStudents.length === 0) {
+                showToast('لا يوجد طلبة تجاوزوا نسبة الإنذار للتصدير', 'error');
+                return;
+            }
+            
+            // Export to Google Sheets
+            const subjectId = state.currentSubject;
+            const customUrl = localStorage.getItem(`sheetsUrl_${subjectId}`) || '';
+            
+            let exportData = [];
+            let headers = ['التسلسل', 'الاسم', 'أيام الغياب', 'الإجازات', 'النسبة % (من المُقامة)'];
+            
+            let tsvLines = [headers.join('\t')];
+            let html = '<table border="1" style="border-collapse: collapse; font-family: sans-serif;">';
+            html += '<thead><tr>';
+            headers.forEach(h => html += `<th style="background-color: #fecaca; font-weight: bold; padding: 8px;">${h}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            dangerStudents.forEach(stu => {
+                let rowTsv = [stu.seq, stu.name, stu.absentCount, stu.excusedCount, `${stu.percentageCurrent}%`];
+                tsvLines.push(rowTsv.join('\t'));
+                
+                html += `<tr>`;
+                html += `<td style="padding: 5px;">${stu.seq}</td>`;
+                html += `<td style="padding: 5px; font-weight: bold;">${stu.name}</td>`;
+                html += `<td style="padding: 5px; color: #dc2626;">${stu.absentCount}</td>`;
+                html += `<td style="padding: 5px; color: #d97706;">${stu.excusedCount}</td>`;
+                html += `<td style="padding: 5px; background-color: #fecaca; color: #dc2626; font-weight: bold;">${stu.percentageCurrent}%</td>`;
+                html += `</tr>`;
+            });
+            
+            html += '</tbody></table>';
+            const clipboardText = tsvLines.join('\n');
+            
+            const finishExport = () => {
+                alert("تم نسخ تقرير الإنذارات بنجاح!\n\nقم بالذهاب إلى الشيت واضغط (Ctrl+V) للصق البيانات.");
+                if (customUrl) {
+                    window.open(customUrl, '_blank');
+                } else {
+                    window.open('https://sheets.new', '_blank');
+                }
+            };
+    
+            if (window.ClipboardItem) {
+                try {
+                    const htmlBlob = new Blob([html], { type: 'text/html' });
+                    const textBlob = new Blob([clipboardText], { type: 'text/plain' });
+                    const clipboardItem = new ClipboardItem({
+                        'text/html': htmlBlob,
+                        'text/plain': textBlob
+                    });
+                    
+                    navigator.clipboard.write([clipboardItem]).then(finishExport).catch(err => {
+                        navigator.clipboard.writeText(clipboardText).then(finishExport);
+                    });
+                } catch (e) {
+                    navigator.clipboard.writeText(clipboardText).then(finishExport);
+                }
+            } else {
+                navigator.clipboard.writeText(clipboardText).then(finishExport);
+            }
+        });
+    }
     
     // Save Google Sheets URL
     const sheetsUrlInput = document.getElementById('sheetsUrlInput');
@@ -454,13 +551,15 @@ function calculateAbsence(studentId) {
     });
     
     const percentage = state.totalLectures > 0 ? (absenceCount / state.totalLectures) * 100 : 0;
+    const percentageCurrent = actualLecturesHeld > 0 ? (absenceCount / actualLecturesHeld) * 100 : 0;
     
     return {
         count: absenceCount,
         excused: excusedCount,
         present: presentCount,
         held: actualLecturesHeld,
-        percentage: percentage.toFixed(1)
+        percentage: percentage.toFixed(1),
+        percentageCurrent: percentageCurrent.toFixed(1)
     };
 }
 
@@ -470,6 +569,7 @@ function renderAll() {
     renderDashboard();
     renderAttendance();
     renderStudents();
+    renderWarnings();
     renderMaterials();
 }
 
@@ -481,14 +581,19 @@ function renderSubjects() {
         listHtml = '<div style="padding: 1rem; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: 8px;">لم تقم بإضافة أي مواد دراسية بعد.</div>';
     }
     
-    state.subjects.forEach(sub => {
-        const selected = sub.id === state.currentSubject ? 'selected' : '';
-        optionsHtml += `<option value="${sub.id}" ${selected}>${sub.name}</option>`;
+    state.subjects.forEach(subject => {
+        const selected = subject.id === state.currentSubject ? 'selected' : '';
+        const displayName = subject.stage ? `${subject.stage} - ${subject.name}` : subject.name;
+        
+        optionsHtml += `<option value="${subject.id}" ${selected}>${displayName}</option>`;
         
         listHtml += `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem; background: var(--secondary);">
-                <strong>${sub.name}</strong>
-                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);" onclick="deleteSubject('${sub.id}')">حذف</button>
+                <div>
+                    <strong style="color: var(--primary);">${subject.name}</strong>
+                    ${subject.stage ? `<br><small class="text-muted">${subject.stage}</small>` : ''}
+                </div>
+                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);" onclick="deleteSubject('${subject.id}')">حذف</button>
             </div>
         `;
     });
@@ -630,6 +735,41 @@ function renderStudents() {
     }
     
     els.studentsTableBody.innerHTML = html;
+}
+
+function renderWarnings() {
+    if (!els.warningsTableBody) return;
+    
+    let html = '';
+    let hasWarnings = false;
+    
+    if (!state.currentSubject) {
+        html = '<tr><td colspan="5" style="text-align: center;">يرجى إضافة واختيار مادة أولاً</td></tr>';
+    } else if (state.students.length === 0) {
+        html = '<tr><td colspan="5" style="text-align: center;">لا يوجد طلبة مسجلين.</td></tr>';
+    } else {
+        state.students.forEach((student, index) => {
+            const abs = calculateAbsence(student.id);
+            if (parseFloat(abs.percentageCurrent) >= 20) {
+                hasWarnings = true;
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${student.name}</strong></td>
+                        <td style="color: var(--danger); font-weight: bold;">${abs.count}</td>
+                        <td style="color: var(--warning);">${abs.excused}</td>
+                        <td style="background-color: #fecaca; color: #dc2626; font-weight: bold;">${abs.percentageCurrent}%</td>
+                    </tr>
+                `;
+            }
+        });
+        
+        if (!hasWarnings) {
+            html = '<tr><td colspan="5" style="text-align: center; color: var(--success); font-weight: bold;"><i class="bx bxs-check-circle"></i> لا يوجد أي طلبة متجاوزين للحد المسموح حالياً</td></tr>';
+        }
+    }
+    
+    els.warningsTableBody.innerHTML = html;
 }
 
 function renderMaterials() {

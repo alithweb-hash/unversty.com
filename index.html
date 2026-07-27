@@ -20,9 +20,10 @@
                 <h2>حضور<span>ذكـي</span></h2>
             </div>
             <ul class="nav-links">
-                <li class="active" data-target="dashboard"><i class='bx bxs-dashboard'></i> <span>لوحة القيادة</span></li>
-                <li data-target="attendance"><i class='bx bx-calendar-check'></i> <span>تسجيل الحضور</span></li>
+                <li data-target="dashboard" class="active"><i class='bx bxs-dashboard'></i> <span>لوحة القيادة</span></li>
+                <li data-target="attendance"><i class='bx bxs-calendar-check'></i> <span>تسجيل الحضور</span></li>
                 <li data-target="students"><i class='bx bxs-user-detail'></i> <span>سجل الطلبة</span></li>
+                <li data-target="warnings"><i class='bx bxs-error' style="color: #ef4444;"></i> <span>تقرير الإنذارات</span></li>
                 <li data-target="materials"><i class='bx bxs-folder-open'></i> <span>المناهج والاختبارات</span></li>
                 <li data-target="reports"><i class='bx bxs-report'></i> <span>التقارير والاستيراد</span></li>
                 <li data-target="settings"><i class='bx bxs-cog'></i> <span>الإعدادات</span></li>
@@ -82,7 +83,7 @@
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon warning"><i class='bx bx-book-reader'></i></div>
+                            <div class="stat-icon warning"><i class='bx bxs-book-reader'></i></div>
                             <div class="stat-info">
                                 <h3>إجمالي المحاضرات</h3>
                                 <p id="totalLecturesCount">15</p>
@@ -163,7 +164,42 @@
                     </div>
                 </section>
 
-                <!-- Materials View (New) -->
+                <!-- Warnings View -->
+                <section id="warnings" class="view">
+                    <div class="header-actions">
+                        <h2 class="text-primary"><i class='bx bxs-error'></i> تقرير الإنذارات والغياب الحرج</h2>
+                        <div class="actions-group">
+                            <button id="exportWarningsBtn" class="btn btn-warning"><i class='bx bxl-google'></i> تصدير الإنذارات لـ Google Sheets</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-2 fade-in">
+                        <p class="text-muted mb-2">
+                            يعرض هذا التقرير الطلبة الذين تجاوزت نسبة غيابهم 20% <strong>بناءً على عدد المحاضرات التي أقيمت فعلياً حتى الآن</strong>.
+                        </p>
+                        
+                        <div class="table-container mt-1">
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>التسلسل</th>
+                                            <th>الاسم</th>
+                                            <th>أيام الغياب</th>
+                                            <th>الإجازات</th>
+                                            <th>النسبة % (من المحاضرات المُقامة)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="warningsTableBody">
+                                        <!-- Warnings inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Materials View -->
                 <section id="materials" class="view">
                     <div class="section-header-flex">
                         <h1 class="page-title">المناهج والاختبارات</h1>
@@ -285,9 +321,11 @@
                         <h3>إدارة المواد الدراسية</h3>
                         <p class="text-muted">أضف المواد التي تدرسها لتتمكن من تسجيل حضور كل مادة على حدة.</p>
                         <div class="form-group mt-1">
-                            <div class="input-flex" style="max-width: 600px;">
-                                <input type="text" id="newSubjectInput" class="modern-input" placeholder="اسم المادة (مثال: رياضيات)">
-                                <button id="addSubjectBtn" class="btn btn-primary"><i class='bx bx-plus'></i> إضافة مادة</button>
+                            <label>إضافة مادة ومرحلة جديدة</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="newStageInput" class="modern-input" placeholder="المرحلة (مثال: المرحلة الأولى)" style="flex: 1;">
+                                <input type="text" id="newSubjectInput" class="modern-input" placeholder="اسم المادة (مثال: حاسبات)" style="flex: 1;">
+                                <button id="addSubjectBtn" class="btn btn-primary" style="white-space: nowrap;">إضافة الكورس</button>
                             </div>
                         </div>
                         <div class="mt-2" id="subjectsListContainer">
