@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الحضور والغياب الذكي</title>
+    <!-- Google Fonts: Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Boxicons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <i class='bx bxs-graduation'></i>
+                <h2>حضور<span>ذكـي</span></h2>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-target="dashboard"><i class='bx bxs-dashboard'></i> <span>لوحة القيادة</span></li>
+                <li data-target="attendance"><i class='bx bx-calendar-check'></i> <span>تسجيل الحضور</span></li>
+                <li data-target="students"><i class='bx bxs-user-detail'></i> <span>سجل الطلبة</span></li>
+                <li data-target="materials"><i class='bx bxs-folder-open'></i> <span>المناهج والاختبارات</span></li>
+                <li data-target="reports"><i class='bx bxs-report'></i> <span>التقارير والاستيراد</span></li>
+                <li data-target="settings"><i class='bx bxs-cog'></i> <span>الإعدادات</span></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header>
+                <div class="header-controls" style="display: flex; gap: 1rem; align-items: center;">
+                    <div class="subject-selector">
+                        <select id="globalSubjectSelect" class="modern-input" style="padding: 0.5rem; min-width: 200px;">
+                            <option value="">-- اختر المادة --</option>
+                        </select>
+                    </div>
+                    <div class="search-bar">
+                        <i class='bx bx-search'></i>
+                        <input type="text" id="searchInput" placeholder="ابحث عن طالب...">
+                    </div>
+                </div>
+                <div class="user-profile">
+                    <div class="notifications" id="notificationBell">
+                        <i class='bx bxs-bell'></i>
+                        <span class="badge" id="alertBadge">0</span>
+                    </div>
+                    <img src="https://ui-avatars.com/api/?name=أستاذ&background=0D8ABC&color=fff" alt="User">
+                </div>
+            </header>
+
+            <!-- Views -->
+            <div class="views-container">
+                <!-- Dashboard View -->
+                <section id="dashboard" class="view active-view">
+                    <h1 class="page-title">لوحة القيادة</h1>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon primary"><i class='bx bxs-group'></i></div>
+                            <div class="stat-info">
+                                <h3>إجمالي الطلبة</h3>
+                                <p id="totalStudents">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon success"><i class='bx bx-check-double'></i></div>
+                            <div class="stat-info">
+                                <h3>نسبة الحضور اليوم</h3>
+                                <p id="attendanceRate">0%</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon danger"><i class='bx bxs-error-circle'></i></div>
+                            <div class="stat-info">
+                                <h3>تجاوزوا الغياب (20%)</h3>
+                                <p id="dangerStudents">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon warning"><i class='bx bx-book-reader'></i></div>
+                            <div class="stat-info">
+                                <h3>إجمالي المحاضرات</h3>
+                                <p id="totalLecturesCount">15</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alerts-section mt-2">
+                        <div class="section-header">
+                            <h2><i class='bx bx-error text-danger'></i> طلبة تحت الخطر (تجاوز 20%)</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>الاسم</th>
+                                        <th>نسبة الغياب</th>
+                                        <th>الإجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dangerTableBody">
+                                    <!-- Populated dynamically -->
+                                    <tr><td colspan="4" style="text-align: center;">لا يوجد طلاب تجاوزوا النسبة</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Attendance View -->
+                <section id="attendance" class="view">
+                    <div class="section-header-flex">
+                        <h1 class="page-title">تسجيل الحضور اليومي</h1>
+                        <div class="date-picker-container">
+                            <input type="date" id="attendanceDate" class="modern-input">
+                            <button id="saveAttendanceBtn" class="btn btn-primary"><i class='bx bx-save'></i> حفظ الحضور</button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-2">
+                        <table class="data-table" id="attendanceTable">
+                            <thead>
+                                <tr>
+                                    <th>التسلسل</th>
+                                    <th>اسم الطالب</th>
+                                    <th>حاضر؟</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Students View -->
+                <section id="students" class="view">
+                    <div class="section-header-flex">
+                        <h1 class="page-title">سجل الطلبة</h1>
+                        <button id="clearStudentsBtn" class="btn btn-danger"><i class='bx bx-trash'></i> مسح جميع الطلبة</button>
+                    </div>
+                    
+                    <div class="table-responsive mt-2">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>التسلسل</th>
+                                    <th>الاسم</th>
+                                    <th>إجمالي الحضور</th>
+                                    <th>الغياب والمجاز</th>
+                                    <th>نسبة الغياب %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsTableBody">
+                                <!-- Students inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Materials View (New) -->
+                <section id="materials" class="view">
+                    <div class="section-header-flex">
+                        <h1 class="page-title">المناهج والاختبارات</h1>
+                    </div>
+                    <p class="text-muted mt-1">تظهر هنا الملفات الخاصة بالمادة المحددة من الأعلى. يتم رفع الملفات إلى التخزين السحابي.</p>
+
+                    <div class="tools-grid mt-2">
+                        <!-- Upload Curriculum -->
+                        <div class="tool-card">
+                            <div class="tool-icon bg-blue"><i class='bx bxl-google-cloud'></i></div>
+                            <h3>إضافة المنهج (رابط)</h3>
+                            <p>أضف رابط Google Drive للمنهج.</p>
+                            <input type="text" id="currNameInput" class="modern-input mt-1" placeholder="اسم الملف (مثال: المحاضرة الأولى)">
+                            <input type="text" id="currUrlInput" class="modern-input mt-1" placeholder="الرابط (https://...)">
+                            <button class="btn btn-primary mt-1" id="addCurrBtn">
+                                <i class='bx bx-plus'></i> إضافة الرابط
+                            </button>
+                        </div>
+
+                        <!-- Upload Exam -->
+                        <div class="tool-card">
+                            <div class="tool-icon bg-yellow"><i class='bx bxs-edit'></i></div>
+                            <h3>إضافة نموذج اختبار (رابط)</h3>
+                            <p>أضف رابط نماذج الأسئلة.</p>
+                            <input type="text" id="examNameInput" class="modern-input mt-1" placeholder="اسم النموذج (مثال: أسئلة 2023)">
+                            <input type="text" id="examUrlInput" class="modern-input mt-1" placeholder="الرابط (https://...)">
+                            <button class="btn btn-warning mt-1" id="addExamBtn">
+                                <i class='bx bx-plus'></i> إضافة الرابط
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="materials-lists mt-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                        <!-- Curriculum List -->
+                        <div class="settings-card">
+                            <h3><i class='bx bxs-book-bookmark' style="color: var(--primary);"></i> المناهج والملخصات</h3>
+                            <div id="curriculumList" class="mt-1" style="display: flex; flex-direction: column; gap: 1rem;">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Exams List -->
+                        <div class="settings-card">
+                            <h3><i class='bx bxs-edit' style="color: var(--warning);"></i> نماذج الاختبارات</h3>
+                            <div id="examsList" class="mt-1" style="display: flex; flex-direction: column; gap: 1rem;">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Reports & Import/Export View -->
+                <section id="reports" class="view">
+                    <h1 class="page-title">التقارير و إدارة البيانات</h1>
+                    
+                    <div class="settings-card mt-2">
+                        <h3>خيارات التصدير (تحديد المادة والفترة)</h3>
+                        <div class="form-group" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                            <div>
+                                <label>من تاريخ (بداية الأسبوع/الشهر)</label>
+                                <input type="date" id="exportDateFrom" class="modern-input">
+                            </div>
+                            <div>
+                                <label>إلى تاريخ (نهاية الأسبوع/الشهر)</label>
+                                <input type="date" id="exportDateTo" class="modern-input">
+                            </div>
+                            <div style="flex-grow: 1;">
+                                <label>المادة الدراسية المراد تصديرها</label>
+                                <select id="exportSubjectSelect" class="modern-input">
+                                    <option value="">-- اختر المادة --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tools-grid mt-2">
+                        <!-- Import Excel -->
+                        <div class="tool-card">
+                            <div class="tool-icon bg-green"><i class='bx bxs-file-import'></i></div>
+                            <h3>استيراد أسماء الطلبة (Excel)</h3>
+                            <p>قم برفع ملف إكسيل يحتوي على عمود (الاسم) أو (تسلسل، الاسم) لإضافتهم للنظام.</p>
+                            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;">
+                            <button class="btn btn-outline" onclick="document.getElementById('excelFileInput').click()">
+                                <i class='bx bx-upload'></i> اختر ملف
+                            </button>
+                        </div>
+
+                        <!-- Export Excel -->
+                        <div class="tool-card">
+                            <div class="tool-icon bg-blue"><i class='bx bxs-file-export'></i></div>
+                            <h3>تصدير التقرير (Excel)</h3>
+                            <p>تحميل تقرير شامل عن الحضور والغياب ونسب الغياب لجميع الطلبة.</p>
+                            <button id="exportExcelBtn" class="btn btn-primary">
+                                <i class='bx bx-download'></i> تصدير Excel
+                            </button>
+                        </div>
+
+                        <!-- Export Google Sheets -->
+                        <div class="tool-card">
+                            <div class="tool-icon bg-yellow"><i class='bx bxl-google'></i></div>
+                            <h3>تصدير إلى Google Sheets</h3>
+                            <p>تصدير تقرير الغياب بصيغة متوافقة لتكوين جدول جوجل.</p>
+                            
+                            <input type="text" id="sheetsUrlInput" class="modern-input mt-1" placeholder="رابط الشيت الخاص بك (اختياري)">
+                            <button id="saveSheetsUrlBtn" class="btn btn-outline mt-1" style="width: 100%; display: none;">حفظ الرابط</button>
+
+                            <button id="exportSheetsBtn" class="btn btn-warning mt-1">
+                                <i class='bx bx-link-external'></i> نسخ البيانات وفتح الشيت
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Settings View -->
+                <section id="settings" class="view">
+                    <h1 class="page-title">إعدادات النظام</h1>
+                    
+                    <div class="settings-card">
+                        <h3>إدارة المواد الدراسية</h3>
+                        <p class="text-muted">أضف المواد التي تدرسها لتتمكن من تسجيل حضور كل مادة على حدة.</p>
+                        <div class="form-group mt-1">
+                            <div class="input-flex" style="max-width: 600px;">
+                                <input type="text" id="newSubjectInput" class="modern-input" placeholder="اسم المادة (مثال: رياضيات)">
+                                <button id="addSubjectBtn" class="btn btn-primary"><i class='bx bx-plus'></i> إضافة مادة</button>
+                            </div>
+                        </div>
+                        <div class="mt-2" id="subjectsListContainer">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="settings-card mt-2">
+                        <h3>إعدادات المحاضرات</h3>
+                        <div class="form-group">
+                            <label>إجمالي عدد المحاضرات في الفصل الدراسي (لحساب نسبة الـ 20%)</label>
+                            <div class="input-flex">
+                                <input type="number" id="totalLecturesInput" class="modern-input" value="15" min="1">
+                                <button id="saveSettingsBtn" class="btn btn-primary">حفظ الإعدادات</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-card mt-2">
+                        <div class="card fade-in" style="display: none;">
+                        <h2 class="text-primary mb-1">إعدادات Firebase (قاعدة البيانات)</h2>
+                        <p class="text-muted mb-2">هذه الإعدادات ضرورية لحفظ البيانات سحابياً.<br>(تم دمج الإعدادات برمجياً، هذا المربع مخفي الآن)</p>
+                        <textarea id="firebaseConfigInput" class="modern-input" rows="4" placeholder='{"apiKey": "...", "projectId": "..."}'></textarea>
+                        <button id="saveFirebaseBtn" class="btn btn-outline mt-1" style="width: 100%;">تطبيق وحفظ السحابة</button>
+                    </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals & Overlays -->
+    <div id="loaderOverlay" class="loader-overlay hidden">
+        <div class="spinner"></div>
+        <p>جاري المعالجة...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Firebase SDK (v9 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <!-- SheetJS for Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Application Logic -->
+    <script src="firebase-config.js"></script>
+    <script src="excel-tools.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
