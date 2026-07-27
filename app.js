@@ -316,8 +316,8 @@ function setupEvents() {
             }
             
             // Export to Google Sheets
-            const subjectId = state.currentSubject;
-            const customUrl = localStorage.getItem(`sheetsUrl_${subjectId}`) || '';
+            const subject = state.subjects.find(s => s.id === state.currentSubject);
+            const customUrl = subject ? subject.sheetsUrl : '';
             
             let exportData = [];
             let headers = ['التسلسل', 'الاسم', 'أيام الغياب', 'الإجازات', 'النسبة % (من المُقامة)'];
