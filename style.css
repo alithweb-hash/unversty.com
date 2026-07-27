@@ -621,3 +621,28 @@ header {
 
 .toast.success { border-right: 4px solid var(--success); }
 .toast.error { border-right: 4px solid var(--danger); }
+
+/* Grades Table Additions */
+.grades-table th, .grades-table td {
+    border: 1px solid #000; /* As requested in the image */
+    padding: 5px;
+    font-size: 0.9rem;
+}
+.grade-input {
+    width: 50px;
+    padding: 5px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-weight: bold;
+}
+.grade-input[readonly] {
+    background-color: transparent;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-main);
+}
+.grade-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}

@@ -157,6 +157,35 @@ class DatabaseService {
         }
     }
 
+    // Grades
+    async saveGrades(subjectId, gradesObj) {
+        if (!subjectId) throw new Error('Subject ID is required');
+        
+        if (this.useFirebase && this.db) {
+            const gradesRef = this.db.collection(`subjects/${subjectId}/grades`).doc('all');
+            await gradesRef.set({ records: gradesObj }, { merge: true });
+        } else {
+            const allGrades = JSON.parse(localStorage.getItem('grades_v1') || '{}');
+            allGrades[subjectId] = gradesObj;
+            localStorage.setItem('grades_v1', JSON.stringify(allGrades));
+        }
+    }
+    
+    async getGrades(subjectId) {
+        if (!subjectId) return {};
+        
+        if (this.useFirebase && this.db) {
+            const doc = await this.db.collection(`subjects/${subjectId}/grades`).doc('all').get();
+            if (doc.exists && doc.data().records) {
+                return doc.data().records;
+            }
+            return {};
+        } else {
+            const allGrades = JSON.parse(localStorage.getItem('grades_v1') || '{}');
+            return allGrades[subjectId] || {};
+        }
+    }
+
     // Materials (Metadata only)
 
     async saveMaterialMetadata(materialObj) {

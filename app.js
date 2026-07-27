@@ -7,6 +7,7 @@ let state = {
     currentSubject: '', // Selected subject ID
     attendance: {}, // Now specific to current subject: { '2023-10-01': { 'stu-id': 'present' } }
     materials: [], // { id, name, type (curriculum|exam), url, path, subjectId, date }
+    grades: {}, // { 'stu-id': { quizzes: 10, final: 100 } }
     totalLectures: parseInt(localStorage.getItem('totalLectures') || '15'),
     currentDate: new Date().toISOString().split('T')[0]
 };
@@ -63,6 +64,10 @@ const els = {
     warningsTableBody: document.getElementById('warningsTableBody'),
     exportWarningsBtn: document.getElementById('exportWarningsBtn'),
     
+    // Grades
+    gradesTableBody: document.getElementById('gradesTableBody'),
+    exportGradesBtn: document.getElementById('exportGradesBtn'),
+    
     // Materials
     currNameInput: document.getElementById('currNameInput'),
     currUrlInput: document.getElementById('currUrlInput'),
@@ -107,6 +112,7 @@ async function loadData() {
     if (state.currentSubject) {
         state.students = await window.dbService.getStudents(state.currentSubject);
         state.attendance = await window.dbService.getAllAttendance(state.currentSubject);
+        state.grades = await window.dbService.getGrades(state.currentSubject);
         if (window.dbService.useFirebase) {
             state.materials = await window.dbService.getMaterials(state.currentSubject);
         } else {
@@ -114,6 +120,7 @@ async function loadData() {
         }
     } else {
         state.attendance = {};
+        state.grades = {};
         state.materials = [];
     }
 }
@@ -426,6 +433,7 @@ function setupEvents() {
             sheetsUrlInput.value = '';
             state.students = [];
             state.attendance = {};
+            state.grades = {};
             state.materials = [];
             renderAll();
         }
@@ -581,6 +589,7 @@ function renderAll() {
     renderDashboard();
     renderAttendance();
     renderStudents();
+    renderGrades();
     renderWarnings();
     renderMaterials();
 }
@@ -860,6 +869,116 @@ window.deleteMaterialFile = async (encodedObj) => {
         }
     }
 };
+
+function renderGrades() {
+    if (!els.gradesTableBody) return;
+    
+    if (state.students.length === 0 || !state.currentSubject) {
+        els.gradesTableBody.innerHTML = '<tr><td colspan="14" style="text-align: center;">يرجى إضافة طلاب أولاً</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    state.students.forEach((student, index) => {
+        const g = state.grades[student.id] || {};
+        
+        const qz = g.quizzes !== undefined ? g.quizzes : '';
+        const asn = g.assignment !== undefined ? g.assignment : '';
+        const lab = g.lab !== undefined ? g.lab : '';
+        const prac = g.practical !== undefined ? g.practical : '';
+        const rep = g.report !== undefined ? g.report : '';
+        const sem = g.seminar !== undefined ? g.seminar : '';
+        const form = g.formative !== undefined ? g.formative : 0;
+        
+        const mid = g.midExam !== undefined ? g.midExam : '';
+        const fTheo = g.finalTheoretical !== undefined ? g.finalTheoretical : '';
+        const fPrac = g.finalPractical !== undefined ? g.finalPractical : '';
+        const final = g.final !== undefined ? g.final : 0;
+        const status = g.status || (final >= 50 ? 'ناجح' : 'راسب');
+        const statusColor = final >= 50 ? 'green' : 'red';
+        const notes = g.notes || '';
+        
+        html += `
+        <tr id="grade-row-${student.id}">
+            <td style="text-align: center; border: 1px solid #000;">${index + 1}</td>
+            <td style="white-space: nowrap; border: 1px solid #000;"><strong>${student.name}</strong></td>
+            
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${qz}" onchange="updateGrade('${student.id}', 'quizzes', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${asn}" onchange="updateGrade('${student.id}', 'assignment', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${lab}" onchange="updateGrade('${student.id}', 'lab', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${prac}" onchange="updateGrade('${student.id}', 'practical', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${rep}" onchange="updateGrade('${student.id}', 'report', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${sem}" onchange="updateGrade('${student.id}', 'seminar', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; background-color: #dcfce7; font-weight: bold; border: 1px solid #000;" class="formative-total">${form}</td>
+            
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${mid}" onchange="updateGrade('${student.id}', 'midExam', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${fTheo}" onchange="updateGrade('${student.id}', 'finalTheoretical', this.value)" min="0" max="30"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${fPrac}" onchange="updateGrade('${student.id}', 'finalPractical', this.value)" min="0" max="20"></td>
+            
+            <td style="text-align: center; background-color: #dbeafe; font-weight: bold; font-size: 1.1rem; border: 1px solid #000;" class="final-total">${final}</td>
+            <td style="text-align: center; border: 1px solid #000;">
+                <input type="text" style="width: 80px; padding: 2px; text-align: center; border: 1px solid #ccc;" value="${notes}" onchange="updateGradeNote('${student.id}', this.value)" placeholder="ملاحظة...">
+                <div class="status-note" style="color: ${statusColor}; font-weight: bold; margin-top: 5px;">${status}</div>
+            </td>
+        </tr>
+        `;
+    });
+    
+    els.gradesTableBody.innerHTML = html;
+}
+
+window.updateGrade = function(studentId, field, value) {
+    if (!state.grades[studentId]) state.grades[studentId] = {};
+    const val = value === '' ? '' : (parseFloat(value) || 0);
+    state.grades[studentId][field] = val;
+    
+    // Auto calculate totals
+    const g = state.grades[studentId];
+    const formative = (parseFloat(g.quizzes) || 0) + (parseFloat(g.assignment) || 0) + (parseFloat(g.lab) || 0) + (parseFloat(g.practical) || 0) + (parseFloat(g.report) || 0) + (parseFloat(g.seminar) || 0);
+    g.formative = formative;
+    
+    const final = formative + (parseFloat(g.midExam) || 0) + (parseFloat(g.finalTheoretical) || 0) + (parseFloat(g.finalPractical) || 0);
+    g.final = final;
+    
+    g.status = final >= 50 ? 'ناجح' : 'راسب';
+    
+    // Update DOM instantly
+    const tr = document.getElementById(`grade-row-${studentId}`);
+    if (tr) {
+        tr.querySelector('.formative-total').textContent = formative;
+        tr.querySelector('.final-total').textContent = final;
+        const statusEl = tr.querySelector('.status-note');
+        statusEl.textContent = g.status;
+        statusEl.style.color = final >= 50 ? 'green' : 'red';
+    }
+    
+    // Debounce save
+    clearTimeout(window.saveGradesTimeout);
+    window.saveGradesTimeout = setTimeout(async () => {
+        await window.dbService.saveGrades(state.currentSubject, state.grades);
+    }, 1000);
+};
+
+window.updateGradeNote = function(studentId, value) {
+    if (!state.grades[studentId]) state.grades[studentId] = {};
+    state.grades[studentId].notes = value;
+    clearTimeout(window.saveGradesTimeout);
+    window.saveGradesTimeout = setTimeout(async () => {
+        await window.dbService.saveGrades(state.currentSubject, state.grades);
+    }, 1000);
+};
+
+if (els.exportGradesBtn) {
+    els.exportGradesBtn.addEventListener('click', () => {
+        if (!state.currentSubject) {
+            showToast('الرجاء اختيار المادة أولاً', 'error');
+            return;
+        }
+        const subject = state.subjects.find(s => s.id === state.currentSubject);
+        const customUrl = subject ? subject.sheetsUrl : '';
+        window.ExcelService.exportGradesToGoogleSheets(state.students, state.grades, customUrl);
+    });
+}
 
 // UI Helpers
 function showLoader() { els.loader.classList.remove('hidden'); }

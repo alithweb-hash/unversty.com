@@ -192,6 +192,134 @@ class ExcelService {
             navigator.clipboard.writeText(clipboardText).then(finishExport);
         }
     }
+
+    static exportGradesToGoogleSheets(students, grades, customUrl) {
+        if (!students || students.length === 0) {
+            alert('لا توجد بيانات لتصديرها');
+            return;
+        }
+
+        let html = `
+        <table dir="rtl" style="border-collapse: collapse; text-align: center; font-family: Cairo, Arial, sans-serif;">
+            <thead>
+                <tr>
+                    <th rowspan="3" style="border: 1px solid #000; width: 50px;">ت</th>
+                    <th rowspan="3" style="border: 1px solid #000; width: 200px;">اسم الطالب</th>
+                    <th colspan="7" style="border: 1px solid #000; background-color: #dcfce7; color: #166534;">Formative Assessment</th>
+                    <th colspan="3" style="border: 1px solid #000; background-color: #ffedd5; color: #9a3412;">Summative</th>
+                    <th rowspan="3" style="border: 1px solid #000; background-color: #dbeafe; color: #1e40af;">Final (100%)</th>
+                    <th rowspan="3" style="border: 1px solid #000;">الملاحظات</th>
+                    <th rowspan="3" style="border: 1px solid #000;">النتيجة</th>
+                </tr>
+                <tr>
+                    <!-- Formative -->
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; padding: 10px;">Quizzes 10%</th>
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; padding: 10px;">Assignment 10%</th>
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; padding: 10px;">Lab 10%</th>
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; padding: 10px;">Practical 10%</th>
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; padding: 10px;">Report 10%</th>
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; padding: 10px;">Seminar 10%</th>
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #dcfce7; color: #166534; font-weight: bold; padding: 10px;">Formative (40%)</th>
+                    <!-- Summative -->
+                    <th rowspan="2" style="border: 1px solid #000; background-color: #ffedd5; color: #9a3412; padding: 10px;">Mid Exam (10%)</th>
+                    <th colspan="2" style="border: 1px solid #000; background-color: #ffedd5; color: #9a3412;">Final Exam (50%)</th>
+                </tr>
+                <tr>
+                    <th style="border: 1px solid #000; background-color: #ffedd5; color: #9a3412; padding: 10px;">Theoretical (30%)</th>
+                    <th style="border: 1px solid #000; background-color: #ffedd5; color: #9a3412; padding: 10px;">Practical (20%)</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        let tsvLines = [];
+        // TSV Headers
+        tsvLines.push(['ت', 'اسم الطالب', 'Quizzes 10%', 'Assignment 10%', 'Lab 10%', 'Practical 10%', 'Report 10%', 'Seminar 10%', 'Formative (40%)', 'Mid Exam (10%)', 'Theoretical (30%)', 'Practical (20%)', 'Final (100%)', 'الملاحظات', 'النتيجة'].join('\t'));
+
+        students.forEach((student, index) => {
+            const g = grades[student.id] || {};
+            
+            const qz = g.quizzes !== undefined ? g.quizzes : '';
+            const asn = g.assignment !== undefined ? g.assignment : '';
+            const lab = g.lab !== undefined ? g.lab : '';
+            const prac = g.practical !== undefined ? g.practical : '';
+            const rep = g.report !== undefined ? g.report : '';
+            const sem = g.seminar !== undefined ? g.seminar : '';
+            const form = g.formative !== undefined ? g.formative : 0;
+            
+            const mid = g.midExam !== undefined ? g.midExam : '';
+            const fTheo = g.finalTheoretical !== undefined ? g.finalTheoretical : '';
+            const fPrac = g.finalPractical !== undefined ? g.finalPractical : '';
+            const final = g.final !== undefined ? g.final : 0;
+            const status = g.status || (final >= 50 ? 'ناجح' : 'راسب');
+            const notes = g.notes || '';
+            const statusColor = final >= 50 ? '#16a34a' : '#dc2626';
+
+            html += `
+                <tr>
+                    <td style="border: 1px solid #000;">${index + 1}</td>
+                    <td style="border: 1px solid #000; white-space: nowrap;"><strong>${student.name}</strong></td>
+                    <td style="border: 1px solid #000;">${qz}</td>
+                    <td style="border: 1px solid #000;">${asn}</td>
+                    <td style="border: 1px solid #000;">${lab}</td>
+                    <td style="border: 1px solid #000;">${prac}</td>
+                    <td style="border: 1px solid #000;">${rep}</td>
+                    <td style="border: 1px solid #000;">${sem}</td>
+                    <td style="border: 1px solid #000; background-color: #dcfce7; font-weight: bold;">${form}</td>
+                    
+                    <td style="border: 1px solid #000;">${mid}</td>
+                    <td style="border: 1px solid #000;">${fTheo}</td>
+                    <td style="border: 1px solid #000;">${fPrac}</td>
+                    
+                    <td style="border: 1px solid #000; background-color: #dbeafe; font-weight: bold;">${final}</td>
+                    <td style="border: 1px solid #000;">${notes}</td>
+                    <td style="border: 1px solid #000; color: ${statusColor}; font-weight: bold;">${status}</td>
+                </tr>
+            `;
+
+            tsvLines.push([
+                index + 1,
+                student.name,
+                qz, asn, lab, prac, rep, sem, form,
+                mid, fTheo, fPrac,
+                final, notes, status
+            ].join('\t'));
+        });
+
+        html += '</tbody></table>';
+        const clipboardText = tsvLines.join('\n');
+
+        const finishExport = () => {
+            alert("تم نسخ البيانات والتنسيقات بنجاح!\n\nقم بالذهاب إلى جدولك واضغط (Ctrl+V) للصق البيانات.");
+            if (customUrl) {
+                window.open(customUrl, '_blank');
+            } else {
+                window.open('https://sheets.new', '_blank');
+            }
+        };
+
+        if (window.ClipboardItem) {
+            try {
+                const htmlBlob = new Blob([html], { type: 'text/html' });
+                const textBlob = new Blob([clipboardText], { type: 'text/plain' });
+                const clipboardItem = new ClipboardItem({
+                    'text/html': htmlBlob,
+                    'text/plain': textBlob
+                });
+                
+                navigator.clipboard.write([clipboardItem])
+                    .then(finishExport)
+                    .catch(err => {
+                        console.warn('Rich text copy failed, falling back to plain text', err);
+                        navigator.clipboard.writeText(clipboardText).then(finishExport);
+                    });
+            } catch (e) {
+                navigator.clipboard.writeText(clipboardText).then(finishExport);
+            }
+        } else {
+            navigator.clipboard.writeText(clipboardText).then(finishExport);
+        }
+    }
 }
 
 window.ExcelService = ExcelService;

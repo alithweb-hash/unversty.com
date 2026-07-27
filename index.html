@@ -23,6 +23,7 @@
                 <li data-target="dashboard" class="active"><i class='bx bxs-dashboard'></i> <span>لوحة القيادة</span></li>
                 <li data-target="attendance"><i class='bx bxs-calendar-check'></i> <span>تسجيل الحضور</span></li>
                 <li data-target="students"><i class='bx bxs-user-detail'></i> <span>سجل الطلبة</span></li>
+                <li data-target="grades"><i class='bx bxs-bar-chart-alt-2'></i> <span>درجات الطلاب</span></li>
                 <li data-target="warnings"><i class='bx bxs-error' style="color: #ef4444;"></i> <span>تقرير الإنذارات</span></li>
                 <li data-target="materials"><i class='bx bxs-folder-open'></i> <span>المناهج والاختبارات</span></li>
                 <li data-target="reports"><i class='bx bxs-report'></i> <span>التقارير والاستيراد</span></li>
@@ -159,6 +160,50 @@
                             </thead>
                             <tbody id="studentsTableBody">
                                 <!-- Students inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Grades View -->
+                <section id="grades" class="view">
+                    <div class="section-header-flex">
+                        <h1 class="page-title">درجات الطلاب</h1>
+                        <button id="exportGradesBtn" class="btn btn-primary"><i class='bx bxs-file-export'></i> تصدير لـ Google Sheets</button>
+                    </div>
+                    
+                    <div class="table-responsive mt-2" style="overflow-x: auto;">
+                        <table class="data-table grades-table" id="gradesTable" style="min-width: 1000px; border: 1px solid #000;">
+                            <thead>
+                                <tr>
+                                    <th rowspan="3" style="width: 50px; border: 1px solid #000; text-align: center;">ت</th>
+                                    <th rowspan="3" style="width: 200px; border: 1px solid #000; text-align: center;">اسم الطالب</th>
+                                    <th colspan="7" style="background-color: #dcfce7; color: #166534; text-align: center; border: 1px solid #000;">Formative Assessment</th>
+                                    <th colspan="3" style="background-color: #ffedd5; color: #9a3412; text-align: center; border: 1px solid #000;">Summative</th>
+                                    <th rowspan="3" style="background-color: #dbeafe; color: #1e40af; text-align: center; border: 1px solid #000;">Final (100%)</th>
+                                    <th rowspan="3" style="text-align: center; border: 1px solid #000;">الملاحظات</th>
+                                </tr>
+                                <tr>
+                                    <!-- Formative columns -->
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Quizzes 10%</th>
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Assignment 10%</th>
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Lab 10%</th>
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Practical 10%</th>
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Report 10%</th>
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Seminar 10%</th>
+                                    <th rowspan="2" style="background-color: #dcfce7; color: #166534; font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Formative (40%)</th>
+                                    <!-- Summative columns -->
+                                    <th rowspan="2" style="background-color: #ffedd5; color: #9a3412; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Mid Exam (10%)</th>
+                                    <th colspan="2" style="background-color: #ffedd5; color: #9a3412; text-align: center; border: 1px solid #000;">Final Exam (50%)</th>
+                                </tr>
+                                <tr>
+                                    <th style="background-color: #ffedd5; color: #9a3412; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Theoretical (30%)</th>
+                                    <th style="background-color: #ffedd5; color: #9a3412; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 5px; border: 1px solid #000;">Practical (20%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gradesTableBody">
+                                <!-- Populated dynamically -->
+                                <tr><td colspan="14" style="text-align: center;">يرجى إضافة طلاب أولاً</td></tr>
                             </tbody>
                         </table>
                     </div>
