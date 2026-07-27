@@ -118,6 +118,13 @@ async function loadData() {
         } else {
             state.materials = [];
         }
+        
+        const subject = state.subjects.find(s => s.id === state.currentSubject);
+        if (subject && subject.totalLectures) {
+            els.totalLecturesInput.value = subject.totalLectures;
+        } else {
+            els.totalLecturesInput.value = 15;
+        }
     } else {
         state.attendance = {};
         state.grades = {};
@@ -181,10 +188,18 @@ function setupEvents() {
     });
 
     // Settings
-    els.saveSettingsBtn.addEventListener('click', () => {
-        state.totalLectures = parseInt(els.totalLecturesInput.value) || 15;
-        localStorage.setItem('totalLectures', state.totalLectures);
-        showToast('تم حفظ الإعدادات بنجاح', 'success');
+    els.saveSettingsBtn.addEventListener('click', async () => {
+        const total = parseInt(els.totalLecturesInput.value) || 15;
+        if (state.currentSubject) {
+            const subject = state.subjects.find(s => s.id === state.currentSubject);
+            if (subject) {
+                subject.totalLectures = total;
+                await window.dbService.saveSubjects(state.subjects);
+                showToast('تم حفظ الإعدادات للمادة بنجاح', 'success');
+            }
+        } else {
+            showToast('الرجاء اختيار مادة أولاً', 'error');
+        }
         renderAll();
     });
     
@@ -208,9 +223,13 @@ function setupEvents() {
     });
     
     els.clearStudentsBtn.addEventListener('click', async () => {
-        if(confirm('هل أنت متأكد من مسح جميع الطلبة وبيانات الحضور؟')) {
+        if (!state.currentSubject) {
+            showToast('الرجاء اختيار المادة أولاً', 'error');
+            return;
+        }
+        if(confirm('هل أنت متأكد من مسح جميع الطلبة؟ لا يمكن التراجع عن هذا الإجراء.')) {
             showLoader();
-            await window.dbService.clearStudents();
+            await window.dbService.clearStudents(state.currentSubject);
             state.students = [];
             hideLoader();
             renderAll();
@@ -263,6 +282,9 @@ function setupEvents() {
             return;
         }
 
+        const subject = state.subjects.find(s => s.id === subjectId);
+        const subjectTotalLectures = subject && subject.totalLectures ? subject.totalLectures : 15;
+
         showLoader();
         try {
             // Fetch attendance for selected subject
@@ -277,11 +299,11 @@ function setupEvents() {
             });
             
             if (type === 'excel') {
-                window.ExcelService.exportToExcel(state.students, filteredAttendance, state.totalLectures);
+                window.ExcelService.exportToExcel(state.students, filteredAttendance, subjectTotalLectures);
                 showToast('تم التصدير بنجاح', 'success');
             } else {
                 const customUrl = document.getElementById('sheetsUrlInput').value.trim();
-                window.ExcelService.exportToGoogleSheets(state.students, filteredAttendance, state.totalLectures, customUrl);
+                window.ExcelService.exportToGoogleSheets(state.students, filteredAttendance, subjectTotalLectures, customUrl);
             }
         } catch (error) {
             console.error(error);
@@ -570,7 +592,10 @@ function calculateAbsence(studentId) {
         }
     });
     
-    const percentage = state.totalLectures > 0 ? (absenceCount / state.totalLectures) * 100 : 0;
+    const subject = state.subjects.find(s => s.id === state.currentSubject);
+    const subjectTotalLectures = subject && subject.totalLectures ? subject.totalLectures : 15;
+    
+    const percentage = subjectTotalLectures > 0 ? (absenceCount / subjectTotalLectures) * 100 : 0;
     const percentageCurrent = actualLecturesHeld > 0 ? (absenceCount / actualLecturesHeld) * 100 : 0;
     
     return {
@@ -647,8 +672,11 @@ window.deleteSubject = async (id) => {
 };
 
 function renderDashboard() {
+    const subject = state.subjects.find(s => s.id === state.currentSubject);
+    const subjectTotalLectures = subject && subject.totalLectures ? subject.totalLectures : 15;
+
     els.totalStudents.textContent = state.students.length;
-    els.totalLecturesCount.textContent = state.totalLectures;
+    els.totalLecturesCount.textContent = subjectTotalLectures;
     
     const todayRecords = state.attendance[state.currentDate] || {};
     const presentCount = Object.values(todayRecords).filter(v => v === 'present' || v === true).length;

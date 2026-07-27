@@ -111,16 +111,34 @@ class DatabaseService {
         }
     }
 
-    async clearStudents() {
+    async clearStudents(subjectId) {
+        if (!subjectId) throw new Error('Subject ID is required to clear students');
         if (this.useFirebase && this.db) {
-            const snapshot = await this.db.collection('students').get();
             const batch = this.db.batch();
-            snapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
+            
+            // Delete students
+            const studentsSnapshot = await this.db.collection(`subjects/${subjectId}/students`).get();
+            studentsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+            
+            // Delete attendance dates
+            const attendanceSnapshot = await this.db.collection(`attendance_v2/${subjectId}/dates`).get();
+            attendanceSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+            
+            // Delete grades
+            const gradesRef = this.db.collection(`subjects/${subjectId}/grades`).doc('all');
+            batch.delete(gradesRef);
+            
             await batch.commit();
         } else {
-            localStorage.removeItem('students');
+            localStorage.removeItem(`students_${subjectId}`);
+            
+            const allAttendance = JSON.parse(localStorage.getItem('attendance_v2') || '{}');
+            delete allAttendance[subjectId];
+            localStorage.setItem('attendance_v2', JSON.stringify(allAttendance));
+            
+            const allGrades = JSON.parse(localStorage.getItem('grades_v1') || '{}');
+            delete allGrades[subjectId];
+            localStorage.setItem('grades_v1', JSON.stringify(allGrades));
         }
     }
 
