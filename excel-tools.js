@@ -30,7 +30,7 @@ class ExcelService {
                             
                             if (name) {
                                 students.push({
-                                    id: `STU-${Date.now()}-${i}`,
+                                    id: `STU-${Date.now()}-${String(i).padStart(4, '0')}`,
                                     name: String(name).trim()
                                 });
                             }
