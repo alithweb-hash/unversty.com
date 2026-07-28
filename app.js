@@ -16,7 +16,6 @@ let state = {
 const els = {
     navLinks: document.querySelectorAll('.nav-links li'),
     views: document.querySelectorAll('.view'),
-    totalLecturesInput: document.getElementById('totalLecturesInput'),
     firebaseConfigInput: document.getElementById('firebaseConfigInput'),
     saveSettingsBtn: document.getElementById('saveSettingsBtn'),
     saveFirebaseBtn: document.getElementById('saveFirebaseBtn'),
@@ -85,7 +84,6 @@ const els = {
 async function init() {
     showLoader();
     
-    els.totalLecturesInput.value = state.totalLectures;
     const fbConfig = localStorage.getItem('firebaseConfig');
     if (fbConfig) els.firebaseConfigInput.value = fbConfig;
     els.attendanceDate.value = state.currentDate;
