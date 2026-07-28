@@ -138,7 +138,7 @@ class ExcelService {
             const pctStr = pctVal.toFixed(1) + '%';
             
             let pctStyle = 'padding: 5px; text-align: center;';
-            if (pctVal >= 20) {
+            if (absenceCount >= 2) {
                 pctStyle += ' background-color: #fecaca; color: #dc2626; font-weight: bold;'; // Danger Red
             } else if (pctVal >= 10) {
                 pctStyle += ' background-color: #fef08a; color: #a16207; font-weight: bold;'; // Warning Yellow

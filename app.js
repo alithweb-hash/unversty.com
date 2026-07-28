@@ -328,7 +328,7 @@ function setupEvents() {
             const dangerStudents = [];
             state.students.forEach((student, index) => {
                 const abs = calculateAbsence(student.id);
-                if (parseFloat(abs.percentageCurrent) >= 20) {
+                if (abs.count >= 2) {
                     dangerStudents.push({
                         seq: index + 1,
                         name: student.name,
@@ -693,7 +693,7 @@ function renderDashboard() {
     
     state.students.forEach((student, index) => {
         const abs = calculateAbsence(student.id);
-        if (parseFloat(abs.percentage) >= 20) {
+        if (abs.count >= 2) {
             dangerCount++;
             dangerListHTML += `
                 <tr>
@@ -768,7 +768,7 @@ function renderStudents() {
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
-            const isDanger = parseFloat(abs.percentage) >= 20;
+            const isDanger = abs.count >= 2;
             const pctColor = isDanger ? 'color: var(--danger); font-weight: bold;' : '';
             
             html += `
@@ -799,7 +799,7 @@ function renderWarnings() {
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
-            if (parseFloat(abs.percentageCurrent) >= 20) {
+            if (abs.count >= 2) {
                 hasWarnings = true;
                 html += `
                     <tr>
