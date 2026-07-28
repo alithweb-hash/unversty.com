@@ -46,9 +46,9 @@ class ExcelService {
         });
     }
 
-    static exportToExcel(students, allAttendance, totalLectures) {
+    static exportToExcel(students, allAttendance) {
         let dates = Object.keys(allAttendance).sort();
-        let headers = ['التسلسل', 'اسم الطالب', 'إجمالي الغياب', 'نسبة الغياب %', 'إجمالي المجاز', ...dates];
+        let headers = ['التسلسل', 'اسم الطالب', 'إجمالي الغيابات', 'حالة الطالب', 'الغيابات بعذر', ...dates];
         
         let exportData = [headers];
         
@@ -71,10 +71,10 @@ class ExcelService {
                 attendanceStatuses.push(statusText);
             });
             
-            let percentage = totalLectures > 0 ? Math.round((absenceCount / totalLectures) * 100) : 0;
+            let status = absenceCount >= 2 ? 'إنذار' : 'منتظم';
             
             row.push(absenceCount);
-            row.push(percentage + '%');
+            row.push(status);
             row.push(excusedCount);
             row = row.concat(attendanceStatuses);
             
@@ -88,9 +88,9 @@ class ExcelService {
         XLSX.writeFile(wb, `تقرير_الحضور_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 
-    static exportToGoogleSheets(students, allAttendance, totalLectures, customUrl = '') {
+    static exportToGoogleSheets(students, allAttendance, customUrl = '') {
         let dates = Object.keys(allAttendance).sort();
-        let headers = ['التسلسل', 'اسم الطالب', 'الحضور', 'إجمالي الغياب', 'نسبة الغياب %', 'المجاز', ...dates];
+        let headers = ['التسلسل', 'اسم الطالب', 'الحضور', 'إجمالي الغيابات', 'حالة الطالب', 'الأعذار', ...dates];
         
         let tsvLines = [headers.join('\t')];
         
@@ -134,24 +134,23 @@ class ExcelService {
                 }
             });
             
-            const pctVal = totalLectures > 0 ? (absenceCount / totalLectures) * 100 : 0;
-            const pctStr = pctVal.toFixed(1) + '%';
+            const statusStr = absenceCount >= 2 ? 'إنذار' : 'منتظم';
             
-            let pctStyle = 'padding: 5px; text-align: center;';
+            let statusStyle = 'padding: 5px; text-align: center; font-weight: bold; ';
             if (absenceCount >= 2) {
-                pctStyle += ' background-color: #fecaca; color: #dc2626; font-weight: bold;'; // Danger Red
-            } else if (pctVal >= 10) {
-                pctStyle += ' background-color: #fef08a; color: #a16207; font-weight: bold;'; // Warning Yellow
+                statusStyle += 'background-color: #fecaca; color: #dc2626;'; // Danger Red
+            } else {
+                statusStyle += 'background-color: #dcfce7; color: #16a34a;'; // Success Green
             }
             
             const presenceStr = `${presentCount} من ${heldCount}`;
             rowHtml += `<td style="padding: 5px; color: #16a34a;">${presenceStr}</td>`;
-            rowHtml += `<td style="padding: 5px; color: #dc2626;">${absenceCount}</td>`;
-            rowHtml += `<td style="${pctStyle}">${pctStr}</td>`;
+            rowHtml += `<td style="padding: 5px; color: #dc2626; text-align: center; font-weight: bold;">${absenceCount}</td>`;
+            rowHtml += `<td style="${statusStyle}">${statusStr}</td>`;
             rowHtml += `<td style="padding: 5px;">${excusedCount}</td>`;
             rowHtml += dateCellsHtml + '</tr>';
             
-            rowTsv.splice(2, 0, presenceStr, absenceCount, pctStr, excusedCount);
+            rowTsv.splice(2, 0, presenceStr, absenceCount, statusStr, excusedCount);
             rowTsv = rowTsv.concat(dateCellsTsv);
             
             tsvLines.push(rowTsv.join('\t'));

@@ -118,13 +118,6 @@ async function loadData() {
         } else {
             state.materials = [];
         }
-        
-        const subject = state.subjects.find(s => s.id === state.currentSubject);
-        if (subject && subject.totalLectures) {
-            els.totalLecturesInput.value = subject.totalLectures;
-        } else {
-            els.totalLecturesInput.value = 15;
-        }
     } else {
         state.attendance = {};
         state.grades = {};
@@ -188,20 +181,13 @@ function setupEvents() {
     });
 
     // Settings
-    els.saveSettingsBtn.addEventListener('click', async () => {
-        const total = parseInt(els.totalLecturesInput.value) || 15;
-        if (state.currentSubject) {
-            const subject = state.subjects.find(s => s.id === state.currentSubject);
-            if (subject) {
-                subject.totalLectures = total;
-                await window.dbService.saveSubjects(state.subjects);
-                showToast('تم حفظ الإعدادات للمادة بنجاح', 'success');
-            }
-        } else {
-            showToast('الرجاء اختيار مادة أولاً', 'error');
-        }
-        renderAll();
-    });
+    if (els.saveSettingsBtn) {
+        els.saveSettingsBtn.addEventListener('click', async () => {
+            // Keep the fallback functionality if anything else uses this button
+            showToast('تم حفظ الإعدادات بنجاح', 'success');
+            renderAll();
+        });
+    }
     
     els.saveFirebaseBtn.addEventListener('click', async () => {
         const configStr = els.firebaseConfigInput.value.trim();
@@ -282,12 +268,8 @@ function setupEvents() {
             return;
         }
 
-        const subject = state.subjects.find(s => s.id === subjectId);
-        const subjectTotalLectures = subject && subject.totalLectures ? subject.totalLectures : 15;
-
         showLoader();
         try {
-            // Fetch attendance for selected subject
             const subAttendance = await window.dbService.getAllAttendance(subjectId);
             
             // Filter dates
@@ -299,11 +281,11 @@ function setupEvents() {
             });
             
             if (type === 'excel') {
-                window.ExcelService.exportToExcel(state.students, filteredAttendance, subjectTotalLectures);
+                window.ExcelService.exportToExcel(state.students, filteredAttendance);
                 showToast('تم التصدير بنجاح', 'success');
             } else {
                 const customUrl = document.getElementById('sheetsUrlInput').value.trim();
-                window.ExcelService.exportToGoogleSheets(state.students, filteredAttendance, subjectTotalLectures, customUrl);
+                window.ExcelService.exportToGoogleSheets(state.students, filteredAttendance, customUrl);
             }
         } catch (error) {
             console.error(error);
@@ -333,8 +315,7 @@ function setupEvents() {
                         seq: index + 1,
                         name: student.name,
                         absentCount: abs.count,
-                        excusedCount: abs.excused,
-                        percentageCurrent: abs.percentageCurrent
+                        excusedCount: abs.excused
                     });
                 }
             });
@@ -348,8 +329,7 @@ function setupEvents() {
             const subject = state.subjects.find(s => s.id === state.currentSubject);
             const customUrl = subject ? subject.sheetsUrl : '';
             
-            let exportData = [];
-            let headers = ['التسلسل', 'الاسم', 'أيام الغياب', 'الإجازات', 'النسبة % (من المُقامة)'];
+            let headers = ['التسلسل', 'الاسم', 'أيام الغياب', 'الإجازات', 'حالة الطالب'];
             
             let tsvLines = [headers.join('\t')];
             let html = '<table border="1" style="border-collapse: collapse; font-family: sans-serif;">';
@@ -358,7 +338,7 @@ function setupEvents() {
             html += '</tr></thead><tbody>';
             
             dangerStudents.forEach(stu => {
-                let rowTsv = [stu.seq, stu.name, stu.absentCount, stu.excusedCount, `${stu.percentageCurrent}%`];
+                let rowTsv = [stu.seq, stu.name, stu.absentCount, stu.excusedCount, 'إنذار'];
                 tsvLines.push(rowTsv.join('\t'));
                 
                 html += `<tr>`;
@@ -366,7 +346,7 @@ function setupEvents() {
                 html += `<td style="padding: 5px; font-weight: bold;">${stu.name}</td>`;
                 html += `<td style="padding: 5px; color: #dc2626;">${stu.absentCount}</td>`;
                 html += `<td style="padding: 5px; color: #d97706;">${stu.excusedCount}</td>`;
-                html += `<td style="padding: 5px; background-color: #fecaca; color: #dc2626; font-weight: bold;">${stu.percentageCurrent}%</td>`;
+                html += `<td style="padding: 5px; background-color: #fecaca; color: #dc2626; font-weight: bold;">إنذار</td>`;
                 html += `</tr>`;
             });
             
@@ -592,19 +572,11 @@ function calculateAbsence(studentId) {
         }
     });
     
-    const subject = state.subjects.find(s => s.id === state.currentSubject);
-    const subjectTotalLectures = subject && subject.totalLectures ? subject.totalLectures : 15;
-    
-    const percentage = subjectTotalLectures > 0 ? (absenceCount / subjectTotalLectures) * 100 : 0;
-    const percentageCurrent = actualLecturesHeld > 0 ? (absenceCount / actualLecturesHeld) * 100 : 0;
-    
     return {
         count: absenceCount,
         excused: excusedCount,
         present: presentCount,
-        held: actualLecturesHeld,
-        percentage: percentage.toFixed(1),
-        percentageCurrent: percentageCurrent.toFixed(1)
+        held: actualLecturesHeld
     };
 }
 
@@ -672,11 +644,8 @@ window.deleteSubject = async (id) => {
 };
 
 function renderDashboard() {
-    const subject = state.subjects.find(s => s.id === state.currentSubject);
-    const subjectTotalLectures = subject && subject.totalLectures ? subject.totalLectures : 15;
-
     els.totalStudents.textContent = state.students.length;
-    els.totalLecturesCount.textContent = subjectTotalLectures;
+    els.totalLecturesCount.textContent = Object.keys(state.attendance).length;
     
     const todayRecords = state.attendance[state.currentDate] || {};
     const presentCount = Object.values(todayRecords).filter(v => v === 'present' || v === true).length;
@@ -698,8 +667,8 @@ function renderDashboard() {
             dangerListHTML += `
                 <tr>
                     <td><strong>${student.name}</strong></td>
-                    <td class="text-danger font-bold">${abs.percentage}% (${abs.count} محاضرات)</td>
-                    <td><button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" onclick="alert('إرسال إنذار للطالب: ${student.name}')">توجيه إنذار</button></td>
+                    <td class="text-danger font-bold">${abs.count} غياب (إنذار)</td>
+                    <td><button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" onclick="alert('تنبيه للطالب المكتوب: ${student.name}')">تنبيه الطالب</button></td>
                 </tr>
             `;
         }
@@ -807,7 +776,7 @@ function renderWarnings() {
                         <td><strong>${student.name}</strong></td>
                         <td style="color: var(--danger); font-weight: bold;">${abs.count}</td>
                         <td style="color: var(--warning);">${abs.excused}</td>
-                        <td style="background-color: #fecaca; color: #dc2626; font-weight: bold;">${abs.percentageCurrent}%</td>
+                        <td style="background-color: #fecaca; color: #dc2626; font-weight: bold;">إنذار</td>
                     </tr>
                 `;
             }

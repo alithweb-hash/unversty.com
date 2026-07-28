@@ -154,8 +154,8 @@
                                     <th>التسلسل</th>
                                     <th>الاسم</th>
                                     <th>إجمالي الحضور</th>
-                                    <th>الغياب والمجاز</th>
-                                    <th>نسبة الغياب %</th>
+                                    <th>إجمالي الغيابات</th>
+                                    <th>حالة الطالب</th>
                                 </tr>
                             </thead>
                             <tbody id="studentsTableBody">
@@ -230,9 +230,9 @@
                                         <tr>
                                             <th>التسلسل</th>
                                             <th>الاسم</th>
-                                            <th>أيام الغياب</th>
-                                            <th>الإجازات</th>
-                                            <th>النسبة % (من المحاضرات المُقامة)</th>
+                                            <th>إجمالي الغياب</th>
+                                            <th>الغياب بعذر</th>
+                                            <th>حالة الطالب</th>
                                         </tr>
                                     </thead>
                                     <tbody id="warningsTableBody">
@@ -380,13 +380,7 @@
 
                     <div class="settings-card mt-2">
                         <h3>إعدادات المحاضرات</h3>
-                        <div class="form-group">
-                            <label>إجمالي عدد المحاضرات في الفصل الدراسي (لحساب نسبة الـ 20%)</label>
-                            <div class="input-flex">
-                                <input type="number" id="totalLecturesInput" class="modern-input" value="15" min="1">
-                                <button id="saveSettingsBtn" class="btn btn-primary">حفظ الإعدادات</button>
-                            </div>
-                        </div>
+                        <!-- Settings section for total lectures removed as it's no longer needed -->
                     </div>
                     
                     <div class="settings-card mt-2">
