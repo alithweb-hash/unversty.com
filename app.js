@@ -327,12 +327,12 @@ function setupEvents() {
             const subject = state.subjects.find(s => s.id === state.currentSubject);
             const customUrl = subject ? subject.sheetsUrl : '';
             
-            let headers = ['التسلسل', 'الاسم', 'أيام الغياب', 'الإجازات', 'حالة الطالب'];
+            let headers = ['التسلسل', 'الاسم', 'أيام الغياب', 'الإجازات', 'التنبيه'];
             
             let tsvLines = [headers.join('\t')];
             let html = '<table border="1" style="border-collapse: collapse; font-family: sans-serif;">';
             html += '<thead><tr>';
-            headers.forEach(h => html += `<th style="background-color: #fecaca; font-weight: bold; padding: 8px;">${h}</th>`);
+            headers.forEach(h => html += `<th style="padding: 5px; background-color: #f3f4f6;">${h}</th>`);
             html += '</tr></thead><tbody>';
             
             dangerStudents.forEach(stu => {
@@ -506,12 +506,12 @@ function setupEvents() {
         const url = urlInput.value.trim();
 
         if (!name || !url) {
-            showToast('الرجاء إدخال الاسم والرابط معاً.', 'error');
+            showToast('الرجاء كتابة الاسم ووضع الرابط أولاً.', 'error');
             return;
         }
 
         if (!window.dbService.useFirebase) {
-            showToast('لا يمكن حفظ الروابط في الوضع المحلي. الرجاء ربط Firebase.', 'error');
+            showToast('لا يمكن حفظ الروابط في الوضع المحلي. يرجى تفعيل Firebase.', 'error');
             return;
         }
         if (!state.currentSubject) {
@@ -538,7 +538,7 @@ function setupEvents() {
             renderMaterials();
         } catch (error) {
             console.error(error);
-            showToast('خطأ أثناء الحفظ! تأكد من اتصالك بالإنترنت.', 'error');
+            showToast('حدث خطأ في الحفظ! تأكد من الاتصال بالإنترنت.', 'error');
         } finally {
             hideLoader();
         }
@@ -735,16 +735,14 @@ function renderStudents() {
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
-            const isDanger = abs.count >= 2;
-            const pctColor = isDanger ? 'color: var(--danger); font-weight: bold;' : '';
+            const dangerTag = abs.count >= 2 ? ' <span style="color:var(--danger); font-weight:bold;">(إنذار)</span>' : '';
             
             html += `
                 <tr>
                     <td>${index + 1}</td>
                     <td><strong>${student.name}</strong></td>
                     <td class="text-success font-bold">${abs.present} <span class="text-muted" style="font-size: 0.8rem;">من أصل ${abs.held}</span></td>
-                    <td><span style="color:var(--danger)">${abs.count} غياب</span> <span class="text-muted" style="font-size: 0.8rem;">(+${abs.excused} مجاز)</span></td>
-                    <td style="${pctColor}">${abs.percentage}%</td>
+                    <td><span style="color:var(--danger)">${abs.count} أيام</span> <span class="text-muted" style="font-size: 0.8rem;">(+${abs.excused} بعذر)</span>${dangerTag}</td>
                 </tr>
             `;
         });
@@ -760,9 +758,9 @@ function renderWarnings() {
     let hasWarnings = false;
     
     if (!state.currentSubject) {
-        html = '<tr><td colspan="5" style="text-align: center;">يرجى إضافة واختيار مادة أولاً</td></tr>';
+        html = '<tr><td colspan="5" style="text-align: center;">الرجاء اختيار المادة لعرض التقرير</td></tr>';
     } else if (state.students.length === 0) {
-        html = '<tr><td colspan="5" style="text-align: center;">لا يوجد طلبة مسجلين.</td></tr>';
+        html = '<tr><td colspan="5" style="text-align: center;">لا يوجد طلاب مسجلين.</td></tr>';
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
@@ -781,7 +779,7 @@ function renderWarnings() {
         });
         
         if (!hasWarnings) {
-            html = '<tr><td colspan="5" style="text-align: center; color: var(--success); font-weight: bold;"><i class="bx bxs-check-circle"></i> لا يوجد أي طلبة متجاوزين للحد المسموح حالياً</td></tr>';
+            html = '<tr><td colspan="5" style="text-align: center; color: var(--success); font-weight: bold;"><i class="bx bxs-check-circle"></i> لا يوجد أي طلاب لديهم نسبة غياب في مرحلة الخطر</td></tr>';
         }
     }
     

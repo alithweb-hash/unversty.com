@@ -28,6 +28,7 @@ class DatabaseService {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
                 }
+                
                 this.db = firebase.firestore();
                 this.useFirebase = true;
                 console.log("Firebase initialized successfully.");
