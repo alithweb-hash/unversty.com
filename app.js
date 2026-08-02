@@ -83,21 +83,24 @@ const els = {
 // Initialize App
 async function init() {
     showLoader();
-    
-    const fbConfig = localStorage.getItem('firebaseConfig');
-    if (fbConfig) els.firebaseConfigInput.value = fbConfig;
-    els.attendanceDate.value = state.currentDate;
-    
-    // Default dates for export (current month)
-    const dateObj = new Date();
-    els.exportDateFrom.value = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1).toISOString().split('T')[0];
-    els.exportDateTo.value = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).toISOString().split('T')[0];
-    
-    await loadData();
-    setupEvents();
-    
-    hideLoader();
-    renderAll();
+    try {
+        const fbConfig = localStorage.getItem('firebaseConfig');
+        if (fbConfig && els.firebaseConfigInput) els.firebaseConfigInput.value = fbConfig;
+        if (els.attendanceDate) els.attendanceDate.value = state.currentDate;
+        
+        // Default dates for export (current month)
+        const dateObj = new Date();
+        if (els.exportDateFrom) els.exportDateFrom.value = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1).toISOString().split('T')[0];
+        if (els.exportDateTo) els.exportDateTo.value = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).toISOString().split('T')[0];
+        
+        await loadData();
+        setupEvents();
+    } catch (err) {
+        console.error("Initialization Error:", err);
+    } finally {
+        hideLoader();
+        renderAll();
+    }
 }
 
 async function loadData() {
@@ -111,11 +114,7 @@ async function loadData() {
         state.students = await window.dbService.getStudents(state.currentSubject);
         state.attendance = await window.dbService.getAllAttendance(state.currentSubject);
         state.grades = await window.dbService.getGrades(state.currentSubject);
-        if (window.dbService.useFirebase) {
-            state.materials = await window.dbService.getMaterials(state.currentSubject);
-        } else {
-            state.materials = [];
-        }
+        state.materials = await window.dbService.getMaterials(state.currentSubject);
     } else {
         state.attendance = {};
         state.grades = {};
@@ -125,6 +124,7 @@ async function loadData() {
 
 // Event Listeners Setup
 function setupEvents() {
+    setupMaterialsEvents();
     els.navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             const target = e.currentTarget.getAttribute('data-target');
@@ -786,75 +786,436 @@ function renderWarnings() {
     els.warningsTableBody.innerHTML = html;
 }
 
-function renderMaterials() {
-    if (!window.dbService.useFirebase) {
-        const msg = '<div style="text-align:center; padding: 1rem; color: var(--text-muted);">عذراً، رفع وعرض الملفات يتطلب تفعيل Firebase (السحابة).</div>';
-        els.curriculumList.innerHTML = msg;
-        els.examsList.innerHTML = msg;
-        return;
-    }
-    
-    if (!state.currentSubject) {
-        const msg = '<div style="text-align:center; padding: 1rem; color: var(--text-muted);">يرجى إضافة مادة دراسية واختيارها أولاً.</div>';
-        els.curriculumList.innerHTML = msg;
-        els.examsList.innerHTML = msg;
-        return;
-    }
+let materialsFilter = 'all';
+let materialsSearchQuery = '';
+let selectedMaterialFile = null;
 
-    let currHtml = '';
-    let examHtml = '';
+function setupMaterialsEvents() {
+    const tabFileBtn = document.getElementById('tabUploadFileBtn');
+    const tabLinkBtn = document.getElementById('tabUploadLinkBtn');
+    const fileContainer = document.getElementById('fileUploadContainer');
+    const linkContainer = document.getElementById('linkUploadContainer');
 
-    const currMats = state.materials.filter(m => m.type === 'curriculum');
-    const examMats = state.materials.filter(m => m.type === 'exam');
-
-    if (currMats.length === 0) {
-        currHtml = '<div style="text-align:center; padding: 1rem; color: var(--text-muted);">لا توجد ملفات مناهج.</div>';
-    } else {
-        currMats.forEach(mat => {
-            currHtml += buildMaterialCard(mat);
+    if (tabFileBtn && tabLinkBtn) {
+        tabFileBtn.addEventListener('click', () => {
+            tabFileBtn.classList.add('active');
+            tabLinkBtn.classList.remove('active');
+            fileContainer.style.display = 'block';
+            linkContainer.style.display = 'none';
+        });
+        tabLinkBtn.addEventListener('click', () => {
+            tabLinkBtn.classList.add('active');
+            tabFileBtn.classList.remove('active');
+            linkContainer.style.display = 'block';
+            fileContainer.style.display = 'none';
         });
     }
 
-    if (examMats.length === 0) {
-        examHtml = '<div style="text-align:center; padding: 1rem; color: var(--text-muted);">لا توجد نماذج أسئلة.</div>';
-    } else {
-        examMats.forEach(mat => {
-            examHtml += buildMaterialCard(mat);
+    const dropzone = document.getElementById('fileDropzone');
+    const fileInput = document.getElementById('materialFileInput');
+    const selectedInfo = document.getElementById('selectedFileInfo');
+
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelected(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelected(e.target.files[0]);
+            }
         });
     }
 
-    els.curriculumList.innerHTML = currHtml;
-    els.examsList.innerHTML = examHtml;
+    function handleFileSelected(file) {
+        selectedMaterialFile = file;
+        if (selectedInfo) {
+            const sizeFormatted = formatFileSize(file.size);
+            selectedInfo.innerHTML = `<i class='bx bx-file'></i> تم اختيار: <strong>${file.name}</strong> (${sizeFormatted})`;
+            selectedInfo.classList.remove('hidden');
+        }
+        const titleInput = document.getElementById('fileTitleInput');
+        if (titleInput && !titleInput.value.trim()) {
+            const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+            titleInput.value = nameWithoutExt;
+        }
+    }
+
+    const startUploadBtn = document.getElementById('startUploadBtn');
+    if (startUploadBtn) {
+        startUploadBtn.addEventListener('click', async () => {
+            if (!state.currentSubject) {
+                showToast('يرجى اختيار مادة أولاً من قائمة المواد الأعلى', 'error');
+                return;
+            }
+            if (!selectedMaterialFile) {
+                showToast('يرجى اختيار ملف لرفعه أولاً', 'error');
+                return;
+            }
+
+            const titleInput = document.getElementById('fileTitleInput');
+            const categorySelect = document.getElementById('fileCategorySelect');
+            const title = (titleInput ? titleInput.value.trim() : '') || selectedMaterialFile.name;
+            const category = categorySelect ? categorySelect.value : 'curriculum';
+
+            showLoader();
+            try {
+                const matId = `MAT-${Date.now()}`;
+                const uploadRes = await window.dbService.uploadMaterialFile(matId, selectedMaterialFile);
+
+                const newMat = {
+                    id: matId,
+                    name: title,
+                    fileName: selectedMaterialFile.name,
+                    category: category,
+                    type: category,
+                    size: selectedMaterialFile.size,
+                    mimeType: selectedMaterialFile.type,
+                    url: uploadRes.url,
+                    storagePath: uploadRes.storagePath,
+                    isLocal: uploadRes.isLocal,
+                    subjectId: state.currentSubject,
+                    date: new Date().toISOString()
+                };
+
+                await window.dbService.saveMaterialMetadata(newMat);
+                state.materials.unshift(newMat);
+
+                // Reset form
+                selectedMaterialFile = null;
+                if (fileInput) fileInput.value = '';
+                if (titleInput) titleInput.value = '';
+                if (selectedInfo) {
+                    selectedInfo.innerHTML = '';
+                    selectedInfo.classList.add('hidden');
+                }
+
+                renderMaterials();
+                showToast('تم رفع وحفظ الملف بنجاح', 'success');
+            } catch (err) {
+                console.error("Upload error:", err);
+                showToast('حدث خطأ أثناء رفع الملف', 'error');
+            } finally {
+                hideLoader();
+            }
+        });
+    }
+
+    // Link Upload Button
+    const addCurrBtn = document.getElementById('addCurrBtn');
+    if (addCurrBtn) {
+        addCurrBtn.addEventListener('click', async () => {
+            if (!state.currentSubject) {
+                showToast('الرجاء اختيار مادة أولاً', 'error');
+                return;
+            }
+            const nameInput = document.getElementById('currNameInput');
+            const urlInput = document.getElementById('currUrlInput');
+            const catSelect = document.getElementById('linkCategorySelect');
+
+            const name = nameInput ? nameInput.value.trim() : '';
+            const url = urlInput ? urlInput.value.trim() : '';
+            const category = catSelect ? catSelect.value : 'curriculum';
+
+            if (!name || !url) {
+                showToast('الرجاء كتابة اسم ورابط المنهج', 'error');
+                return;
+            }
+
+            showLoader();
+            try {
+                const matId = `MAT-LINK-${Date.now()}`;
+                const newMat = {
+                    id: matId,
+                    name: name,
+                    fileName: name,
+                    category: category,
+                    type: category,
+                    url: url,
+                    isLink: true,
+                    isLocal: false,
+                    subjectId: state.currentSubject,
+                    date: new Date().toISOString()
+                };
+
+                await window.dbService.saveMaterialMetadata(newMat);
+                state.materials.unshift(newMat);
+
+                if (nameInput) nameInput.value = '';
+                if (urlInput) urlInput.value = '';
+
+                renderMaterials();
+                showToast('تم إضافة الرابط بنجاح', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('خطأ أثناء إضافة الرابط', 'error');
+            } finally {
+                hideLoader();
+            }
+        });
+    }
+
+    // Folder Category Filters
+    const folderTabs = document.querySelectorAll('.folder-tab');
+    folderTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            folderTabs.forEach(t => t.classList.remove('active'));
+            const targetTab = e.currentTarget;
+            targetTab.classList.add('active');
+            materialsFilter = targetTab.getAttribute('data-filter') || 'all';
+            renderMaterials();
+        });
+    });
+
+    // Search Input
+    const searchInput = document.getElementById('materialsSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            materialsSearchQuery = e.target.value.toLowerCase().trim();
+            renderMaterials();
+        });
+    }
 }
 
-function buildMaterialCard(mat) {
-    const dateStr = new Date(mat.date).toLocaleDateString('ar-EG');
-    // Using stringified obj to pass it to onclick (simple hack for global scope)
+function renderMaterials() {
+    const gridEl = document.getElementById('materialsGrid');
+    if (!gridEl) return;
+
+    if (!state.currentSubject) {
+        gridEl.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 2rem; color: var(--text-muted); background: white; border-radius: 12px;"><i class="bx bxs-info-circle" style="font-size: 2rem; color: var(--primary);"></i><p style="margin-top: 0.5rem;">يرجى اختيار مادة دراسية من شريط التنقل العلوي لعرض مجلد ملفاتها ومناهجها.</p></div>';
+        updateMaterialCounts([]);
+        return;
+    }
+
+    // Filter materials by currentSubject
+    let subMaterials = state.materials.filter(m => m.subjectId === state.currentSubject);
+
+    // Update Counts for tabs
+    updateMaterialCounts(subMaterials);
+
+    // Filter by Category
+    if (materialsFilter !== 'all') {
+        subMaterials = subMaterials.filter(m => m.category === materialsFilter || m.type === materialsFilter);
+    }
+
+    // Filter by Search Query
+    if (materialsSearchQuery) {
+        subMaterials = subMaterials.filter(m => 
+            (m.name && m.name.toLowerCase().includes(materialsSearchQuery)) ||
+            (m.fileName && m.fileName.toLowerCase().includes(materialsSearchQuery))
+        );
+    }
+
+    if (subMaterials.length === 0) {
+        gridEl.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding: 3rem 1rem; color: var(--text-muted); background: white; border-radius: 12px; border: 1px dashed var(--border-color);"><i class="bx bx-folder-open" style="font-size: 3rem; color: var(--border-color);"></i><p style="margin-top: 0.5rem; font-weight: 600;">لا توجد ملفات أو كتب في هذا التصنيف حالياً.</p><p style="font-size: 0.85rem;">يمكنك رفع ملف جديد من النموذج بالأعلى.</p></div>';
+        return;
+    }
+
+    let html = '';
+    subMaterials.forEach(mat => {
+        html += buildFileCard(mat);
+    });
+    gridEl.innerHTML = html;
+}
+
+function updateMaterialCounts(materialsList) {
+    const countAll = document.getElementById('countAll');
+    const countCurr = document.getElementById('countCurr');
+    const countExam = document.getElementById('countExam');
+    const countSumm = document.getElementById('countSumm');
+    const totalBadge = document.getElementById('totalMaterialsCount');
+
+    const total = materialsList.length;
+    const currCount = materialsList.filter(m => m.category === 'curriculum' || m.type === 'curriculum').length;
+    const examCount = materialsList.filter(m => m.category === 'exam' || m.type === 'exam').length;
+    const summCount = materialsList.filter(m => m.category === 'summary' || m.type === 'summary').length;
+
+    if (countAll) countAll.textContent = total;
+    if (countCurr) countCurr.textContent = currCount;
+    if (countExam) countExam.textContent = examCount;
+    if (countSumm) countSumm.textContent = summCount;
+    if (totalBadge) totalBadge.textContent = `${total} ملفات`;
+}
+
+function buildFileCard(mat) {
+    const dateStr = mat.date ? new Date(mat.date).toLocaleDateString('ar-EG') : 'بدون تاريخ';
+    const sizeStr = mat.size ? formatFileSize(mat.size) : (mat.isLink ? 'رابط خارجي' : 'ملف مخزن');
+    const ext = getFileExtension(mat);
+    const iconInfo = getFileIconInfo(ext, mat.isLink);
+    const categoryInfo = getCategoryInfo(mat.category || mat.type);
+
     const encodedObj = encodeURIComponent(JSON.stringify(mat));
+
     return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg);">
-            <div style="display: flex; flex-direction: column; gap: 0.2rem; overflow: hidden;">
-                <strong style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;" title="${mat.name}">${mat.name}</strong>
-                <span class="text-muted" style="font-size: 0.8rem;">${dateStr}</span>
+        <div class="file-card">
+            <div class="file-card-top">
+                <div class="file-icon-box ${iconInfo.styleClass}">
+                    <i class='${iconInfo.iconClass}'></i>
+                </div>
+                <div class="file-details">
+                    <div class="file-title" title="${mat.name}">${mat.name}</div>
+                    <span class="file-category-tag ${categoryInfo.styleClass}">${categoryInfo.label}</span>
+                    <div class="file-meta-row">
+                        <span><i class='bx bx-calendar'></i> ${dateStr}</span>
+                        <span><i class='bx bx-hdd'></i> ${sizeStr}</span>
+                    </div>
+                </div>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <a href="${mat.url}" target="_blank" class="btn btn-outline" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"><i class='bx bx-link-external'></i> فتح الرابط</a>
-                <button class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="deleteMaterialFile('${encodedObj}')"><i class='bx bx-trash'></i></button>
+            <div class="file-card-actions">
+                <button class="btn btn-outline" onclick="openMaterialFile('${encodedObj}')">
+                    <i class='bx bx-show'></i> فتح / معاينة
+                </button>
+                <button class="btn btn-outline" onclick="downloadMaterialFile('${encodedObj}')">
+                    <i class='bx bx-download'></i> تحميل
+                </button>
+                <button class="btn btn-danger" style="flex: 0 0 auto; padding: 0.4rem 0.7rem;" onclick="deleteMaterialFile('${encodedObj}')" title="حذف الملف">
+                    <i class='bx bx-trash'></i>
+                </button>
             </div>
         </div>
     `;
 }
 
+function getFileExtension(mat) {
+    if (mat.extension) return mat.extension.toLowerCase();
+    if (mat.fileName) return mat.fileName.split('.').pop().toLowerCase();
+    if (mat.name && mat.name.includes('.')) return mat.name.split('.').pop().toLowerCase();
+    return '';
+}
+
+function getFileIconInfo(ext, isLink) {
+    if (isLink) return { iconClass: 'bx bx-link-external', styleClass: 'link' };
+    switch (ext) {
+        case 'pdf':
+            return { iconClass: 'bx bxs-file-pdf', styleClass: 'pdf' };
+        case 'doc':
+        case 'docx':
+            return { iconClass: 'bx bxs-file-doc', styleClass: 'word' };
+        case 'ppt':
+        case 'pptx':
+            return { iconClass: 'bx bxs-slideshow', styleClass: 'ppt' };
+        case 'xls':
+        case 'xlsx':
+        case 'csv':
+            return { iconClass: 'bx bxs-spreadsheet', styleClass: 'excel' };
+        case 'png':
+        case 'jpg':
+        case 'jpeg':
+        case 'gif':
+        case 'webp':
+            return { iconClass: 'bx bxs-file-image', styleClass: 'image' };
+        case 'zip':
+        case 'rar':
+        case '7z':
+            return { iconClass: 'bx bxs-file-archive', styleClass: 'zip' };
+        default:
+            return { iconClass: 'bx bxs-file', styleClass: 'other' };
+    }
+}
+
+function getCategoryInfo(cat) {
+    switch (cat) {
+        case 'exam':
+            return { label: '📝 نموذج اختبار', styleClass: 'exam' };
+        case 'summary':
+            return { label: '📄 ملخص دراسي', styleClass: 'summary' };
+        case 'curriculum':
+        default:
+            return { label: '📚 كتاب منهج', styleClass: 'curriculum' };
+    }
+}
+
+function formatFileSize(bytes) {
+    if (!bytes || isNaN(bytes)) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+window.openMaterialFile = async (encodedObj) => {
+    try {
+        const mat = JSON.parse(decodeURIComponent(encodedObj));
+        if (mat.url) {
+            window.open(mat.url, '_blank');
+            return;
+        }
+        if (mat.isLocal) {
+            showLoader();
+            const blob = await window.dbService.getMaterialFileFromIndexedDB(mat.id);
+            hideLoader();
+            if (blob) {
+                const objectUrl = URL.createObjectURL(blob);
+                window.open(objectUrl, '_blank');
+            } else {
+                showToast('تعذر العثور على الملف المحلي', 'error');
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('خطأ في فتح الملف', 'error');
+    }
+};
+
+window.downloadMaterialFile = async (encodedObj) => {
+    try {
+        const mat = JSON.parse(decodeURIComponent(encodedObj));
+        let downloadUrl = mat.url;
+        let isTempUrl = false;
+
+        if (!downloadUrl && mat.isLocal) {
+            showLoader();
+            const blob = await window.dbService.getMaterialFileFromIndexedDB(mat.id);
+            hideLoader();
+            if (blob) {
+                downloadUrl = URL.createObjectURL(blob);
+                isTempUrl = true;
+            } else {
+                showToast('تعذر العثور على محتوى الملف للتنزيل', 'error');
+                return;
+            }
+        }
+
+        if (downloadUrl) {
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = mat.fileName || mat.name || 'document';
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            if (isTempUrl) {
+                setTimeout(() => URL.revokeObjectURL(downloadUrl), 10000);
+            }
+            showToast('جاري بدء التحميل...', 'success');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('خطأ في تحميل الملف', 'error');
+    }
+};
+
 window.deleteMaterialFile = async (encodedObj) => {
-    if(confirm('هل أنت متأكد من حذف هذا الملف نهائياً؟')) {
+    if (confirm('هل أنت متأكد من حذف هذا الملف نهائياً؟')) {
         showLoader();
         try {
             const mat = JSON.parse(decodeURIComponent(encodedObj));
             await window.dbService.deleteMaterial(mat);
             state.materials = state.materials.filter(m => m.id !== mat.id);
             renderMaterials();
-            showToast('تم الحذف بنجاح', 'success');
-        } catch(error) {
+            showToast('تم حذف الملف بنجاح', 'success');
+        } catch (error) {
             console.error(error);
             showToast('خطأ أثناء الحذف.', 'error');
         } finally {

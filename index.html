@@ -243,55 +243,101 @@
                     </div>
                 </section>
                 
-                <!-- Materials View -->
+                <!-- Materials & File Explorer View -->
                 <section id="materials" class="view">
                     <div class="section-header-flex">
-                        <h1 class="page-title">المناهج والاختبارات</h1>
-                    </div>
-                    <p class="text-muted mt-1">تظهر هنا الملفات الخاصة بالمادة المحددة من الأعلى. يتم رفع الملفات إلى التخزين السحابي.</p>
-
-                    <div class="tools-grid mt-2">
-                        <!-- Upload Curriculum -->
-                        <div class="tool-card">
-                            <div class="tool-icon bg-blue"><i class='bx bxl-google-cloud'></i></div>
-                            <h3>إضافة المنهج (رابط)</h3>
-                            <p>أضف رابط Google Drive للمنهج.</p>
-                            <input type="text" id="currNameInput" class="modern-input mt-1" placeholder="اسم المنهج (مثال: الرياضيات الهندسية)">
-                            <input type="text" id="currUrlInput" class="modern-input mt-1" placeholder="الرابط (https://...)">
-                            <button class="btn btn-primary mt-1" id="addCurrBtn">
-                                <i class='bx bx-plus'></i> إضافة منهج
-                            </button>
+                        <div>
+                            <h1 class="page-title"><i class='bx bxs-folder-open text-primary'></i> المناهج والكتب والدراسات</h1>
+                            <p class="text-muted mt-1">نظام رفع وتخزين الكتب الدراسية والمناهج ونماذج الأسئلة. الملفات تُحفظ سحابياً ومحلياً كأنها في مجلدك الخاص.</p>
                         </div>
-
-                        <!-- Upload Exam -->
-                        <div class="tool-card">
-                            <div class="tool-icon bg-yellow"><i class='bx bxs-edit'></i></div>
-                            <h3>إضافة نموذج اختبار (رابط)</h3>
-                            <p>أضف رابط نماذج الأسئلة.</p>
-                            <input type="text" id="examNameInput" class="modern-input mt-1" placeholder="اسم الاختبار (مثال: شهري 2023)">
-                            <input type="text" id="examUrlInput" class="modern-input mt-1" placeholder="الرابط (https://...)">
-                            <button class="btn btn-warning mt-1" id="addExamBtn">
-                                <i class='bx bx-plus'></i> إضافة اختبار
-                            </button>
+                        <div class="materials-stat-badge" id="materialsStatsBadge">
+                            <i class='bx bxs-file-pdf'></i> <span id="totalMaterialsCount">0 ملفات</span>
                         </div>
                     </div>
 
-                    <div class="materials-lists mt-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                        <!-- Curriculum List -->
-                        <div class="settings-card">
-                            <h3><i class='bx bxs-book-bookmark' style="color: var(--primary);"></i> المناهج والملخصات</h3>
-                            <div id="curriculumList" class="mt-1" style="display: flex; flex-direction: column; gap: 1rem;">
-                                <!-- Populated dynamically -->
+                    <!-- File Upload Card -->
+                    <div class="card mt-2 fade-in">
+                        <div class="upload-header-tabs" style="display: flex; gap: 1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1.2rem;">
+                            <button id="tabUploadFileBtn" class="tab-btn active"><i class='bx bx-cloud-upload'></i> رفع ملف / كتاب من الجهاز</button>
+                            <button id="tabUploadLinkBtn" class="tab-btn"><i class='bx bx-link-external'></i> إضافة رابط Google Drive</button>
+                        </div>
+
+                        <!-- Direct File Upload Form -->
+                        <div id="fileUploadContainer">
+                            <div class="file-dropzone" id="fileDropzone">
+                                <i class='bx bxs-cloud-upload dropzone-icon'></i>
+                                <h3>اسحب الملفات أو الكتب هنا، أو انقر للاختيار</h3>
+                                <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.3rem;">يدعم ملفات PDF, Word, PowerPoint, Excel, ZIP والصور</p>
+                                <input type="file" id="materialFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.zip,.rar,.txt" style="display: none;">
+                                <div id="selectedFileInfo" class="selected-file-info hidden" style="margin-top: 0.8rem; font-weight: bold; color: var(--primary);"></div>
+                            </div>
+
+                            <div class="form-grid mt-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">عنوان الملف / الكتاب</label>
+                                    <input type="text" id="fileTitleInput" class="modern-input" placeholder="مثال: كتاب الرياضيات الهندسية - الفصل الأول">
+                                </div>
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">نوع وتصنيف الملف</label>
+                                    <select id="fileCategorySelect" class="modern-input">
+                                        <option value="curriculum">📚 كتاب منهج دراسي / محاضرة</option>
+                                        <option value="exam">📝 نموذج اختبار / أسئلة</option>
+                                        <option value="summary">📄 ملخص / دراسة إضافية</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1.2rem; text-align: left;">
+                                <button class="btn btn-primary" id="startUploadBtn">
+                                    <i class='bx bx-upload'></i> رفع وتحفيظ الملف
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Exams List -->
-                        <div class="settings-card">
-                            <h3><i class='bx bxs-edit' style="color: var(--warning);"></i> نماذج الاختبارات</h3>
-                            <div id="examsList" class="mt-1" style="display: flex; flex-direction: column; gap: 1rem;">
-                                <!-- Populated dynamically -->
+                        <!-- External Link Form (Hidden by default) -->
+                        <div id="linkUploadContainer" style="display: none;">
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">اسم الكتاب أو الرابط</label>
+                                    <input type="text" id="currNameInput" class="modern-input" placeholder="اسم المنهج (مثال: الرياضيات)">
+                                </div>
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">التصنيف</label>
+                                    <select id="linkCategorySelect" class="modern-input">
+                                        <option value="curriculum">📚 منهج / كتاب</option>
+                                        <option value="exam">📝 نموذج اختبار</option>
+                                        <option value="summary">📄 ملخص</option>
+                                    </select>
+                                </div>
+                                <div style="grid-column: 1 / -1;">
+                                    <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">رابط Google Drive أو الموقع (https://...)</label>
+                                    <input type="text" id="currUrlInput" class="modern-input" placeholder="https://drive.google.com/...">
+                                </div>
+                            </div>
+                            <div style="margin-top: 1.2rem; text-align: left;">
+                                <button class="btn btn-primary" id="addCurrBtn">
+                                    <i class='bx bx-plus'></i> إضافة الرابط للمكتبة
+                                </button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Explorer & Category Filters -->
+                    <div class="materials-explorer-bar mt-3">
+                        <div class="folder-tabs">
+                            <button class="folder-tab active" data-filter="all"><i class='bx bxs-folder'></i> الكل (<span id="countAll">0</span>)</button>
+                            <button class="folder-tab" data-filter="curriculum"><i class='bx bxs-book-bookmark' style="color: var(--primary);"></i> الكتب والمناهج (<span id="countCurr">0</span>)</button>
+                            <button class="folder-tab" data-filter="exam"><i class='bx bxs-edit-alt' style="color: var(--warning);"></i> الاختبارات والأسئلة (<span id="countExam">0</span>)</button>
+                            <button class="folder-tab" data-filter="summary"><i class='bx bxs-file-doc' style="color: var(--success);"></i> الملخصات والملحقات (<span id="countSumm">0</span>)</button>
+                        </div>
+                        <div class="materials-search">
+                            <i class='bx bx-search'></i>
+                            <input type="text" id="materialsSearchInput" placeholder="بحث داخل المجلد والملفات..." class="modern-input">
+                        </div>
+                    </div>
+
+                    <!-- Files Display Container (Folder / Cards Grid) -->
+                    <div id="materialsGrid" class="materials-file-grid mt-2">
+                        <!-- Populated dynamically with file cards -->
                     </div>
                 </section>
 
@@ -407,6 +453,7 @@
     <!-- Firebase SDK (v9 compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     
     <!-- SheetJS for Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
