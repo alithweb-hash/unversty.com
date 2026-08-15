@@ -173,6 +173,27 @@ class DatabaseService {
         }
     }
     
+    async clearAllAttendance(subjectId) {
+        if (!subjectId) throw new Error('Subject ID is required');
+        
+        const allAttendance = JSON.parse(localStorage.getItem('attendance_v2') || '{}');
+        delete allAttendance[subjectId];
+        localStorage.setItem('attendance_v2', JSON.stringify(allAttendance));
+
+        if (this.useFirebase && this.db) {
+            try {
+                const snapshot = await this.db.collection(`attendance_v2/${subjectId}/dates`).get();
+                const batch = this.db.batch();
+                snapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+            } catch (e) {
+                console.error("Firebase clearAllAttendance error:", e);
+            }
+        }
+    }
+    
     async getAllAttendance(subjectId) {
         if (!subjectId) return {};
         

@@ -7,7 +7,8 @@ let state = {
     currentSubject: '', // Selected subject ID
     attendance: {}, // Now specific to current subject: { '2023-10-01': { 'stu-id': 'present' } }
     materials: [], // { id, name, type (curriculum|exam), url, path, subjectId, date }
-    grades: {}, // { 'stu-id': { quizzes: 10, final: 100 } }
+    grades: {}, // { 'stu-id': { quizzes: 10, final: 100, shortQuizzes: [10, 8, 9] } }
+    numQuizzes: 3, // Default number of short quizzes
     totalLectures: parseInt(localStorage.getItem('totalLectures') || '15'),
     currentDate: new Date().toISOString().split('T')[0]
 };
@@ -50,6 +51,7 @@ const els = {
     attendanceDate: document.getElementById('attendanceDate'),
     attendanceTableBody: document.getElementById('attendanceTableBody'),
     saveAttendanceBtn: document.getElementById('saveAttendanceBtn'),
+    resetAttendanceBtn: document.getElementById('resetAttendanceBtn'),
     
     // Import/Export
     excelFileInput: document.getElementById('excelFileInput'),
@@ -66,6 +68,12 @@ const els = {
     // Grades
     gradesTableBody: document.getElementById('gradesTableBody'),
     exportGradesBtn: document.getElementById('exportGradesBtn'),
+    
+    // Quizzes
+    quizzesTableBody: document.getElementById('quizzesTableBody'),
+    quizzesTableHeader: document.getElementById('quizzesTableHeader'),
+    numQuizzesInput: document.getElementById('numQuizzesInput'),
+    saveQuizzesBtn: document.getElementById('saveQuizzesBtn'),
     
     // Materials
     currNameInput: document.getElementById('currNameInput'),
@@ -134,10 +142,67 @@ function setupEvents() {
             els.views.forEach(v => v.classList.remove('active-view'));
             document.getElementById(target).classList.add('active-view');
             
+            if (target === 'quizzes') renderQuizzes();
+            
             renderAll();
         });
     });
     
+    // Quizzes Events
+    els.numQuizzesInput.addEventListener('change', (e) => {
+        state.numQuizzes = parseInt(e.target.value) || 3;
+        renderQuizzes();
+    });
+    
+    els.saveQuizzesBtn.addEventListener('click', async () => {
+        if (!state.currentSubject) return showToast('اختر مادة أولاً', 'error');
+        showLoader();
+        try {
+            state.students.forEach(stu => {
+                if (!state.grades[stu.id]) state.grades[stu.id] = {};
+                let shortQuizzes = [];
+                let sum = 0;
+                for (let i = 1; i <= state.numQuizzes; i++) {
+                    const input = document.querySelector(`.quiz-input[data-stu="${stu.id}"][data-quiz="${i}"]`);
+                    const val = parseFloat(input.value) || 0;
+                    shortQuizzes.push(val);
+                    sum += val;
+                }
+                state.grades[stu.id].shortQuizzes = shortQuizzes;
+                const average = sum / state.numQuizzes;
+                state.grades[stu.id].quizzes = Math.round(average);
+            });
+            await window.dbService.saveGrades(state.currentSubject, state.grades);
+            showToast('تم حفظ الاختبارات وتحديث درجات الاختبارات بنجاح', 'success');
+            renderQuizzes();
+        } catch(error) {
+            console.error(error);
+            showToast('خطأ في حفظ الاختبارات', 'error');
+        } finally {
+            hideLoader();
+        }
+    });
+
+    if (els.resetAttendanceBtn) {
+        els.resetAttendanceBtn.addEventListener('click', async () => {
+            if (!state.currentSubject) return showToast('الرجاء اختيار مادة أولاً', 'error');
+            if (confirm('هل أنت متأكد من مسح جميع سجلات الحضور لهذه المادة تماماً للبدء من جديد؟ (لا يمكن التراجع)')) {
+                showLoader();
+                try {
+                    await window.dbService.clearAllAttendance(state.currentSubject);
+                    state.attendance = {};
+                    renderAll();
+                    showToast('تم تصفير سجلات الحضور بنجاح', 'success');
+                } catch (error) {
+                    console.error(error);
+                    showToast('حدث خطأ أثناء التصفير', 'error');
+                } finally {
+                    hideLoader();
+                }
+            }
+        });
+    }
+
     // Subject Management
     els.addSubjectBtn.addEventListener('click', async () => {
         const name = els.newSubjectInput.value.trim();
@@ -587,6 +652,108 @@ function renderAll() {
     renderGrades();
     renderWarnings();
     renderMaterials();
+    renderQuizzes();
+}
+
+function renderQuizzes() {
+    if (!els.quizzesTableHeader || !els.quizzesTableBody) return;
+    
+    let headerHtml = `
+        <th style="width: 50px;">ت</th>
+        <th>اسم الطالب</th>
+    `;
+    for (let i = 1; i <= state.numQuizzes; i++) {
+        headerHtml += `<th>الاختبار ${i}</th>`;
+    }
+    headerHtml += `
+        <th style="background-color: #dcfce7;">المجموع</th>
+        <th style="background-color: #dbeafe;">المعدل</th>
+    `;
+    els.quizzesTableHeader.innerHTML = headerHtml;
+    
+    els.quizzesTableBody.innerHTML = '';
+    
+    if (state.students.length === 0) {
+        els.quizzesTableBody.innerHTML = `<tr><td colspan="${state.numQuizzes + 4}" style="text-align: center;">لا يوجد طلاب في هذه المادة</td></tr>`;
+        return;
+    }
+    
+    state.students.forEach((stu, index) => {
+        const tr = document.createElement('tr');
+        let html = `
+            <td>${index + 1}</td>
+            <td style="font-weight: 600;">${stu.name}</td>
+        `;
+        
+        const grades = state.grades[stu.id] || {};
+        const shortQuizzes = grades.shortQuizzes || [];
+        let sum = 0;
+        
+        for (let i = 1; i <= state.numQuizzes; i++) {
+            const val = shortQuizzes[i-1] !== undefined ? shortQuizzes[i-1] : '';
+            if (val !== '') sum += parseFloat(val) || 0;
+            html += `
+                <td>
+                    <input type="number" class="modern-input quiz-input" 
+                        data-stu="${stu.id}" data-quiz="${i}" 
+                        value="${val}" step="0.5" min="0" 
+                        style="width: 60px; padding: 4px; text-align: center;">
+                </td>
+            `;
+        }
+        
+        const avg = sum / state.numQuizzes;
+        html += `
+            <td style="font-weight: bold; color: #166534; background-color: #dcfce7;" id="quiz-sum-${stu.id}">${sum}</td>
+            <td style="font-weight: bold; color: #1e40af; background-color: #dbeafe;" id="quiz-avg-${stu.id}">${Math.round(avg)}</td>
+        `;
+        
+        tr.innerHTML = html;
+        els.quizzesTableBody.appendChild(tr);
+    });
+    
+    // Add event listeners for dynamic calculation and auto-save
+    document.querySelectorAll('.quiz-input').forEach(input => {
+        // Immediate UI update
+        input.addEventListener('input', (e) => {
+            const stuId = e.target.getAttribute('data-stu');
+            let tempSum = 0;
+            for (let i = 1; i <= state.numQuizzes; i++) {
+                const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
+                tempSum += parseFloat(qInput.value) || 0;
+            }
+            const tempAvg = tempSum / state.numQuizzes;
+            document.getElementById(`quiz-sum-${stuId}`).innerText = tempSum;
+            document.getElementById(`quiz-avg-${stuId}`).innerText = Math.round(tempAvg);
+        });
+
+        // Auto-save to DB on change (when input loses focus)
+        input.addEventListener('change', async (e) => {
+            const stuId = e.target.getAttribute('data-stu');
+            let tempSum = 0;
+            let shortQuizzes = [];
+            for (let i = 1; i <= state.numQuizzes; i++) {
+                const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
+                const val = parseFloat(qInput.value) || 0;
+                shortQuizzes.push(val);
+                tempSum += val;
+            }
+            const tempAvg = tempSum / state.numQuizzes;
+            
+            if (!state.grades[stuId]) state.grades[stuId] = {};
+            state.grades[stuId].shortQuizzes = shortQuizzes;
+            
+            // This will automatically calculate formative/final totals and save to database
+            if (window.updateGrade) {
+                window.updateGrade(stuId, 'quizzes', Math.round(tempAvg));
+            } else {
+                state.grades[stuId].quizzes = Math.round(tempAvg);
+                if (state.currentSubject) {
+                    await window.dbService.saveGrades(state.currentSubject, state.grades);
+                }
+            }
+        });
+    });
 }
 
 function renderSubjects() {
@@ -1236,7 +1403,9 @@ function renderGrades() {
     state.students.forEach((student, index) => {
         const g = state.grades[student.id] || {};
         
-        const qz = g.quizzes !== undefined ? g.quizzes : '';
+        let qz = g.quizzes !== undefined ? g.quizzes : '';
+        if (qz !== '') qz = Math.round(parseFloat(qz)); // Force round for display
+
         const asn = g.assignment !== undefined ? g.assignment : '';
         const lab = g.lab !== undefined ? g.lab : '';
         const prac = g.practical !== undefined ? g.practical : '';

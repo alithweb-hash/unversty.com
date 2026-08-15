@@ -24,6 +24,7 @@
                 <li data-target="attendance"><i class='bx bxs-calendar-check'></i> <span>تسجيل الحضور</span></li>
                 <li data-target="students"><i class='bx bxs-user-detail'></i> <span>سجل الطلبة</span></li>
                 <li data-target="grades"><i class='bx bxs-bar-chart-alt-2'></i> <span>درجات الطلاب</span></li>
+                <li data-target="quizzes"><i class='bx bx-task'></i> <span>الاختبارات القصيرة</span></li>
                 <li data-target="warnings"><i class='bx bxs-error' style="color: #ef4444;"></i> <span>تقرير الإنذارات</span></li>
                 <li data-target="materials"><i class='bx bxs-folder-open'></i> <span>المناهج والاختبارات</span></li>
                 <li data-target="reports"><i class='bx bxs-report'></i> <span>التقارير والاستيراد</span></li>
@@ -121,6 +122,7 @@
                         <div class="date-picker-container">
                             <input type="date" id="attendanceDate" class="modern-input">
                             <button id="saveAttendanceBtn" class="btn btn-primary"><i class='bx bx-save'></i> حفظ الحضور</button>
+                            <button id="resetAttendanceBtn" class="btn btn-danger"><i class='bx bx-reset'></i> تصفير السجل</button>
                         </div>
                     </div>
                     
@@ -203,6 +205,32 @@
                             <tbody id="gradesTableBody">
                                 <!-- Populated dynamically -->
                                 <tr><td colspan="14" style="text-align: center;">يرجى إضافة طلاب أولاً</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Quizzes View -->
+                <section id="quizzes" class="view">
+                    <div class="section-header-flex">
+                        <h1 class="page-title">درجات الاختبارات القصيرة</h1>
+                        <div class="date-picker-container" style="display: flex; gap: 10px; align-items: center;">
+                            <label style="font-weight: bold;">عدد الاختبارات:</label>
+                            <input type="number" id="numQuizzesInput" class="modern-input" value="3" min="1" max="15" style="width: 80px;">
+                            <button id="saveQuizzesBtn" class="btn btn-primary"><i class='bx bx-save'></i> حفظ الاختبارات</button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-2">
+                        <table class="data-table" id="quizzesTable">
+                            <thead>
+                                <tr id="quizzesTableHeader">
+                                    <!-- Populated dynamically -->
+                                </tr>
+                            </thead>
+                            <tbody id="quizzesTableBody">
+                                <!-- Populated dynamically -->
+                                <tr><td colspan="10" style="text-align: center;">يرجى إضافة طلاب أولاً</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -461,6 +489,6 @@
     <!-- Application Logic -->
     <script src="firebase-config.js"></script>
     <script src="excel-tools.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>
