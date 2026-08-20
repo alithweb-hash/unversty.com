@@ -162,14 +162,19 @@ function setupEvents() {
                 if (!state.grades[stu.id]) state.grades[stu.id] = {};
                 let shortQuizzes = [];
                 let sum = 0;
+                let validCount = 0;
                 for (let i = 1; i <= state.numQuizzes; i++) {
                     const input = document.querySelector(`.quiz-input[data-stu="${stu.id}"][data-quiz="${i}"]`);
-                    const val = parseFloat(input.value) || 0;
+                    const valStr = input.value;
+                    const val = (valStr !== '' && parseFloat(valStr) > 0) ? parseFloat(valStr) : '';
                     shortQuizzes.push(val);
-                    sum += val;
+                    if (val !== '') {
+                        sum += val;
+                        validCount++;
+                    }
                 }
                 state.grades[stu.id].shortQuizzes = shortQuizzes;
-                const average = sum / state.numQuizzes;
+                const average = validCount > 0 ? sum / validCount : 0;
                 state.grades[stu.id].quizzes = Math.round(average);
             });
             await window.dbService.saveGrades(state.currentSubject, state.grades);
@@ -688,10 +693,16 @@ function renderQuizzes() {
         const grades = state.grades[stu.id] || {};
         const shortQuizzes = grades.shortQuizzes || [];
         let sum = 0;
+        let validCount = 0;
         
         for (let i = 1; i <= state.numQuizzes; i++) {
-            const val = shortQuizzes[i-1] !== undefined ? shortQuizzes[i-1] : '';
-            if (val !== '') sum += parseFloat(val) || 0;
+            let val = shortQuizzes[i-1] !== undefined ? shortQuizzes[i-1] : '';
+            if (val === 0) val = ''; // Treat 0 as empty
+            
+            if (val !== '') {
+                sum += parseFloat(val);
+                validCount++;
+            }
             html += `
                 <td>
                     <input type="number" class="modern-input quiz-input" 
@@ -702,7 +713,7 @@ function renderQuizzes() {
             `;
         }
         
-        const avg = sum / state.numQuizzes;
+        const avg = validCount > 0 ? sum / validCount : 0;
         html += `
             <td style="font-weight: bold; color: #166534; background-color: #dcfce7;" id="quiz-sum-${stu.id}">${sum}</td>
             <td style="font-weight: bold; color: #1e40af; background-color: #dbeafe;" id="quiz-avg-${stu.id}">${Math.round(avg)}</td>
@@ -718,11 +729,16 @@ function renderQuizzes() {
         input.addEventListener('input', (e) => {
             const stuId = e.target.getAttribute('data-stu');
             let tempSum = 0;
+            let validCount = 0;
             for (let i = 1; i <= state.numQuizzes; i++) {
                 const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
-                tempSum += parseFloat(qInput.value) || 0;
+                const valStr = qInput.value;
+                if (valStr !== '' && parseFloat(valStr) > 0) {
+                    tempSum += parseFloat(valStr);
+                    validCount++;
+                }
             }
-            const tempAvg = tempSum / state.numQuizzes;
+            const tempAvg = validCount > 0 ? tempSum / validCount : 0;
             document.getElementById(`quiz-sum-${stuId}`).innerText = tempSum;
             document.getElementById(`quiz-avg-${stuId}`).innerText = Math.round(tempAvg);
         });
@@ -731,14 +747,19 @@ function renderQuizzes() {
         input.addEventListener('change', async (e) => {
             const stuId = e.target.getAttribute('data-stu');
             let tempSum = 0;
+            let validCount = 0;
             let shortQuizzes = [];
             for (let i = 1; i <= state.numQuizzes; i++) {
                 const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
-                const val = parseFloat(qInput.value) || 0;
+                const valStr = qInput.value;
+                const val = (valStr !== '' && parseFloat(valStr) > 0) ? parseFloat(valStr) : '';
                 shortQuizzes.push(val);
-                tempSum += val;
+                if (val !== '') {
+                    tempSum += val;
+                    validCount++;
+                }
             }
-            const tempAvg = tempSum / state.numQuizzes;
+            const tempAvg = validCount > 0 ? tempSum / validCount : 0;
             
             if (!state.grades[stuId]) state.grades[stuId] = {};
             state.grades[stuId].shortQuizzes = shortQuizzes;
@@ -1404,6 +1425,20 @@ function renderGrades() {
         const g = state.grades[student.id] || {};
         
         let qz = g.quizzes !== undefined ? g.quizzes : '';
+        
+        if (g.shortQuizzes && Array.isArray(g.shortQuizzes)) {
+            let validCount = 0;
+            let sum = 0;
+            g.shortQuizzes.forEach(val => {
+                if (val !== '' && parseFloat(val) > 0) {
+                    sum += parseFloat(val);
+                    validCount++;
+                }
+            });
+            qz = validCount > 0 ? Math.round(sum / validCount) : 0;
+            g.quizzes = qz; // Update in memory so other calculations use the correct value
+        }
+
         if (qz !== '') qz = Math.round(parseFloat(qz)); // Force round for display
 
         const asn = g.assignment !== undefined ? g.assignment : '';
@@ -1411,13 +1446,21 @@ function renderGrades() {
         const prac = g.practical !== undefined ? g.practical : '';
         const rep = g.report !== undefined ? g.report : '';
         const sem = g.seminar !== undefined ? g.seminar : '';
-        const form = g.formative !== undefined ? g.formative : 0;
         
         const mid = g.midExam !== undefined ? g.midExam : '';
         const fTheo = g.finalTheoretical !== undefined ? g.finalTheoretical : '';
         const fPrac = g.finalPractical !== undefined ? g.finalPractical : '';
-        const final = g.final !== undefined ? g.final : 0;
-        const status = g.status || (final >= 50 ? 'ناجح' : 'راسب');
+        
+        // Dynamically recalculate totals in case quizzes changed
+        const form = (parseFloat(qz) || 0) + (parseFloat(asn) || 0) + (parseFloat(lab) || 0) + (parseFloat(prac) || 0) + (parseFloat(rep) || 0) + (parseFloat(sem) || 0);
+        g.formative = form;
+        
+        const final = form + (parseFloat(mid) || 0) + (parseFloat(fTheo) || 0) + (parseFloat(fPrac) || 0);
+        g.final = final;
+        
+        const status = final >= 50 ? 'ناجح' : 'راسب';
+        g.status = status;
+        
         const statusColor = final >= 50 ? 'green' : 'red';
         const notes = g.notes || '';
         
