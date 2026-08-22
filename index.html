@@ -9,7 +9,7 @@
     <!-- Boxicons -->
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
     <div class="app-container">
@@ -52,6 +52,9 @@
                         <span class="badge" id="alertBadge">0</span>
                     </div>
                     <img src="https://ui-avatars.com/api/?name=أستاذ&background=0D8ABC&color=fff" alt="User">
+                    <button id="logoutBtn" class="btn btn-outline" style="padding: 0.3rem 0.6rem; margin-right: 10px; font-size: 0.8rem; display: none;" title="تسجيل الخروج">
+                        <i class='bx bx-log-out'></i>
+                    </button>
                 </div>
             </header>
 
@@ -477,8 +480,22 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast hidden"></div>
 
+    <!-- Login Overlay -->
+    <div id="loginOverlay" class="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); z-index: 9999; display: none; justify-content: center; align-items: center;">
+        <div class="login-box" style="background: white; padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center;">
+            <h2>تسجيل الدخول</h2>
+            <p>مرحباً بك في مساعد الأستاذ الجامعي. يرجى إدخال رمز الدخول.</p>
+            <div style="margin: 1.5rem 0;">
+                <input type="password" id="loginAccessCode" class="modern-input" placeholder="أدخل رمز الدخول..." style="width: 100%;">
+            </div>
+            <button id="loginSubmitBtn" class="btn btn-primary" style="width: 100%;">دخول</button>
+            <p id="loginErrorMsg" class="text-danger" style="margin-top: 1rem; display: none; font-size: 0.9rem;">رمز الدخول غير صحيح.</p>
+        </div>
+    </div>
+
     <!-- Firebase SDK (v9 compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     
@@ -486,8 +503,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <!-- Application Logic -->
-    <script src="firebase-config.js"></script>
+    <script src="firebase-config.js?v=3"></script>
     <script src="excel-tools.js"></script>
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>

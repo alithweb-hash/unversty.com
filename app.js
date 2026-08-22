@@ -1560,5 +1560,55 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Start
-document.addEventListener('DOMContentLoaded', init);
+// Authentication & Start App
+document.addEventListener('DOMContentLoaded', () => {
+    const loginOverlay = document.getElementById('loginOverlay');
+    const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+    const loginAccessCode = document.getElementById('loginAccessCode');
+    const loginErrorMsg = document.getElementById('loginErrorMsg');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    if (!window.firebase || !firebase.auth) {
+        console.error("Firebase Auth not loaded.");
+        init(); // Fallback if no firebase
+        return;
+    }
+
+    firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+            loginOverlay.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = 'block';
+            init(); // Initialize app now that we have auth
+        } else {
+            loginOverlay.style.display = 'flex';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+        }
+    });
+
+    loginSubmitBtn.addEventListener('click', () => {
+        const code = loginAccessCode.value;
+        if (code === 'ranasafaa6980') {
+            loginErrorMsg.style.display = 'none';
+            loginSubmitBtn.textContent = 'جاري الدخول...';
+            firebase.auth().signInAnonymously()
+                .then(() => {
+                    loginSubmitBtn.textContent = 'دخول';
+                })
+                .catch((error) => {
+                    console.error("Auth error:", error);
+                    loginErrorMsg.textContent = 'حدث خطأ في تسجيل الدخول. تأكد من تفعيل الدخول المجهول في Firebase.';
+                    loginErrorMsg.style.display = 'block';
+                    loginSubmitBtn.textContent = 'دخول';
+                });
+        } else {
+            loginErrorMsg.textContent = 'رمز الدخول غير صحيح.';
+            loginErrorMsg.style.display = 'block';
+        }
+    });
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            firebase.auth().signOut().then(() => location.reload());
+        });
+    }
+});
