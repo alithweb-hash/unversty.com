@@ -1596,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .catch((error) => {
                     console.error("Auth error:", error);
-                    loginErrorMsg.textContent = 'حدث خطأ في تسجيل الدخول. تأكد من تفعيل الدخول المجهول في Firebase.';
+                    loginErrorMsg.textContent = 'خطأ: ' + (error.message || error.code || 'حدث خطأ غير معروف');
                     loginErrorMsg.style.display = 'block';
                     loginSubmitBtn.textContent = 'دخول';
                 });
