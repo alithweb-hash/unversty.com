@@ -165,8 +165,8 @@ function setupEvents() {
                 let validCount = 0;
                 for (let i = 1; i <= state.numQuizzes; i++) {
                     const input = document.querySelector(`.quiz-input[data-stu="${stu.id}"][data-quiz="${i}"]`);
-                    const valStr = input.value;
-                    const val = (valStr !== '' && parseFloat(valStr) > 0) ? parseFloat(valStr) : '';
+                    const valStr = input ? input.value.trim() : '';
+                    const val = (valStr !== '' && !isNaN(parseFloat(valStr))) ? parseFloat(valStr) : '';
                     shortQuizzes.push(val);
                     if (val !== '') {
                         sum += val;
@@ -696,8 +696,7 @@ function renderQuizzes() {
         let validCount = 0;
         
         for (let i = 1; i <= state.numQuizzes; i++) {
-            let val = shortQuizzes[i-1] !== undefined ? shortQuizzes[i-1] : '';
-            if (val === 0) val = ''; // Treat 0 as empty
+            let val = (shortQuizzes[i-1] !== undefined && shortQuizzes[i-1] !== null && shortQuizzes[i-1] !== '') ? shortQuizzes[i-1] : '';
             
             if (val !== '') {
                 sum += parseFloat(val);
@@ -732,15 +731,17 @@ function renderQuizzes() {
             let validCount = 0;
             for (let i = 1; i <= state.numQuizzes; i++) {
                 const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
-                const valStr = qInput.value;
-                if (valStr !== '' && parseFloat(valStr) > 0) {
+                const valStr = qInput ? qInput.value.trim() : '';
+                if (valStr !== '' && !isNaN(parseFloat(valStr))) {
                     tempSum += parseFloat(valStr);
                     validCount++;
                 }
             }
             const tempAvg = validCount > 0 ? tempSum / validCount : 0;
-            document.getElementById(`quiz-sum-${stuId}`).innerText = tempSum;
-            document.getElementById(`quiz-avg-${stuId}`).innerText = Math.round(tempAvg);
+            const sumEl = document.getElementById(`quiz-sum-${stuId}`);
+            const avgEl = document.getElementById(`quiz-avg-${stuId}`);
+            if (sumEl) sumEl.innerText = tempSum;
+            if (avgEl) avgEl.innerText = Math.round(tempAvg);
         });
 
         // Auto-save to DB on change (when input loses focus)
@@ -751,8 +752,8 @@ function renderQuizzes() {
             let shortQuizzes = [];
             for (let i = 1; i <= state.numQuizzes; i++) {
                 const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
-                const valStr = qInput.value;
-                const val = (valStr !== '' && parseFloat(valStr) > 0) ? parseFloat(valStr) : '';
+                const valStr = qInput ? qInput.value.trim() : '';
+                const val = (valStr !== '' && !isNaN(parseFloat(valStr))) ? parseFloat(valStr) : '';
                 shortQuizzes.push(val);
                 if (val !== '') {
                     tempSum += val;
@@ -1430,7 +1431,7 @@ function renderGrades() {
             let validCount = 0;
             let sum = 0;
             g.shortQuizzes.forEach(val => {
-                if (val !== '' && parseFloat(val) > 0) {
+                if (val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val))) {
                     sum += parseFloat(val);
                     validCount++;
                 }
