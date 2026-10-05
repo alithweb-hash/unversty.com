@@ -318,7 +318,7 @@ function setupEvents() {
         hideLoader();
     });
     
-    const handleExport = async (type) => {
+    const handleExport = async (type, isAll = false) => {
         const subjectId = els.exportSubjectSelect.value;
         if (!subjectId) {
             showToast('الرجاء اختيار المادة المراد تصديرها أولاً', 'error');
@@ -329,11 +329,14 @@ function setupEvents() {
             return;
         }
         
-        const dateFrom = els.exportDateFrom.value;
-        const dateTo = els.exportDateTo.value;
-        if(!dateFrom || !dateTo) {
-            showToast('الرجاء تحديد النطاق الزمني', 'error');
-            return;
+        let dateFrom, dateTo;
+        if (!isAll) {
+            dateFrom = els.exportDateFrom.value;
+            dateTo = els.exportDateTo.value;
+            if(!dateFrom || !dateTo) {
+                showToast('الرجاء تحديد النطاق الزمني للتصدير', 'error');
+                return;
+            }
         }
 
         showLoader();
@@ -341,12 +344,16 @@ function setupEvents() {
             const subAttendance = await window.dbService.getAllAttendance(subjectId);
             
             // Filter dates
-            const filteredAttendance = {};
-            Object.keys(subAttendance).forEach(date => {
-                if (date >= dateFrom && date <= dateTo) {
-                    filteredAttendance[date] = subAttendance[date];
-                }
-            });
+            let filteredAttendance = {};
+            if (isAll) {
+                filteredAttendance = subAttendance; // Export everything
+            } else {
+                Object.keys(subAttendance).forEach(date => {
+                    if (date >= dateFrom && date <= dateTo) {
+                        filteredAttendance[date] = subAttendance[date];
+                    }
+                });
+            }
             
             if (type === 'excel') {
                 window.ExcelService.exportToExcel(state.students, filteredAttendance);
@@ -364,7 +371,11 @@ function setupEvents() {
     };
 
     els.exportExcelBtn.addEventListener('click', () => handleExport('excel'));
-    els.exportSheetsBtn.addEventListener('click', () => handleExport('sheets'));
+    els.exportSheetsBtn.addEventListener('click', () => handleExport('sheets', false));
+    const exportAllSheetsBtn = document.getElementById('exportAllSheetsBtn');
+    if (exportAllSheetsBtn) {
+        exportAllSheetsBtn.addEventListener('click', () => handleExport('sheets', true));
+    }
     
     // Export Warnings
     if (els.exportWarningsBtn) {
