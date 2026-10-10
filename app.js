@@ -1,5 +1,8 @@
 // app.js
 
+// Constants
+const WARNING_THRESHOLD = 3; // عدد الغيابات المطلوب لإصدار إنذار
+
 // State
 let state = {
     students: [],
@@ -389,7 +392,7 @@ function setupEvents() {
             const dangerStudents = [];
             state.students.forEach((student, index) => {
                 const abs = calculateAbsence(student.id);
-                if (abs.count >= 2) {
+                if (abs.count >= WARNING_THRESHOLD) {
                     dangerStudents.push({
                         seq: index + 1,
                         name: student.name,
@@ -860,7 +863,7 @@ function renderDashboard() {
     
     state.students.forEach((student, index) => {
         const abs = calculateAbsence(student.id);
-        if (abs.count >= 2) {
+        if (abs.count >= WARNING_THRESHOLD) {
             dangerCount++;
             dangerListHTML += `
                 <tr>
@@ -935,7 +938,7 @@ function renderStudents() {
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
-            const dangerTag = abs.count >= 2 ? ' <span style="color:var(--danger); font-weight:bold;">(إنذار)</span>' : '';
+            const dangerTag = abs.count >= WARNING_THRESHOLD ? ' <span style="color:var(--danger); font-weight:bold;">(إنذار)</span>' : '';
             
             html += `
                 <tr>
@@ -964,7 +967,7 @@ function renderWarnings() {
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
-            if (abs.count >= 2) {
+            if (abs.count >= WARNING_THRESHOLD) {
                 hasWarnings = true;
                 html += `
                     <tr>
