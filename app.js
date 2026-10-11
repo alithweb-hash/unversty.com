@@ -49,6 +49,12 @@ const els = {
     // Students
     studentsTableBody: document.getElementById('studentsTableBody'),
     clearStudentsBtn: document.getElementById('clearStudentsBtn'),
+    selectAllStudentsCheckbox: document.getElementById('selectAllStudentsCheckbox'),
+    deleteSelectedStudentsBtn: document.getElementById('deleteSelectedStudentsBtn'),
+    selectedStudentsCount: document.getElementById('selectedStudentsCount'),
+    quickAddStudentInput: document.getElementById('quickAddStudentInput'),
+    quickAddStudentBtn: document.getElementById('quickAddStudentBtn'),
+    studentsSummaryBadge: document.getElementById('studentsSummaryBadge'),
     
     // Attendance
     attendanceDate: document.getElementById('attendanceDate'),
@@ -293,6 +299,108 @@ function setupEvents() {
             showToast('تم مسح بيانات الطلبة', 'success');
         }
     });
+
+    // Student Selection & Bulk Deletion
+    if (els.selectAllStudentsCheckbox) {
+        els.selectAllStudentsCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            const checkboxes = document.querySelectorAll('.student-select-cb');
+            checkboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (!row || row.style.display !== 'none') {
+                    cb.checked = isChecked;
+                }
+            });
+            updateDeleteSelectedBtn();
+        });
+    }
+
+    if (els.deleteSelectedStudentsBtn) {
+        els.deleteSelectedStudentsBtn.addEventListener('click', async () => {
+            if (!state.currentSubject) {
+                showToast('الرجاء اختيار المادة أولاً', 'error');
+                return;
+            }
+
+            const selectedCbs = Array.from(document.querySelectorAll('.student-select-cb:checked'));
+            const selectedIds = selectedCbs.map(cb => cb.dataset.id);
+
+            if (selectedIds.length === 0) {
+                showToast('الرجاء تحديد طالب واحد على الأقل للحذف', 'error');
+                return;
+            }
+
+            if (!confirm(`هل أنت متأكد من حذف ${selectedIds.length} من الطلاب المحددين؟ سيتم مسح بياناتهم وسجلاتهم لهذه المادة.`)) {
+                return;
+            }
+
+            showLoader();
+            try {
+                await window.dbService.deleteStudents(state.currentSubject, selectedIds);
+                const idSet = new Set(selectedIds);
+                state.students = state.students.filter(s => !idSet.has(s.id));
+                Object.keys(state.attendance).forEach(date => {
+                    if (state.attendance[date]) {
+                        selectedIds.forEach(id => {
+                            delete state.attendance[date][id];
+                        });
+                    }
+                });
+                if (state.grades) {
+                    selectedIds.forEach(id => {
+                        delete state.grades[id];
+                    });
+                }
+
+                hideLoader();
+                renderAll();
+                showToast(`تم حذف ${selectedIds.length} من الطلاب بنجاح`, 'success');
+            } catch (err) {
+                console.error(err);
+                hideLoader();
+                showToast('حدث خطأ أثناء حذف الطلاب المحددين', 'error');
+            }
+        });
+    }
+
+    // Quick Add Student
+    if (els.quickAddStudentBtn && els.quickAddStudentInput) {
+        const handleQuickAdd = async () => {
+            if (!state.currentSubject) {
+                showToast('الرجاء اختيار المادة أولاً', 'error');
+                return;
+            }
+            const name = els.quickAddStudentInput.value.trim();
+            if (!name) {
+                showToast('الرجاء كتابة اسم الطالب', 'error');
+                return;
+            }
+
+            const newStudent = {
+                id: `STU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                name: name
+            };
+
+            showLoader();
+            try {
+                await window.dbService.addStudent(state.currentSubject, newStudent);
+                state.students.push(newStudent);
+                els.quickAddStudentInput.value = '';
+                hideLoader();
+                renderAll();
+                showToast(`تمت إضافة الطالب "${name}" بنجاح`, 'success');
+            } catch (err) {
+                console.error(err);
+                hideLoader();
+                showToast('حدث خطأ أثناء إضافة الطالب', 'error');
+            }
+        };
+
+        els.quickAddStudentBtn.addEventListener('click', handleQuickAdd);
+        els.quickAddStudentInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleQuickAdd();
+        });
+    }
     
     // Import/Export
     els.excelFileInput.addEventListener('change', async (e) => {
@@ -885,6 +993,54 @@ function renderDashboard() {
     }
 }
 
+function updateDeleteSelectedBtn() {
+    if (!els.deleteSelectedStudentsBtn) return;
+    const selected = document.querySelectorAll('.student-select-cb:checked');
+    if (selected.length > 0) {
+        els.deleteSelectedStudentsBtn.style.display = 'inline-flex';
+        if (els.selectedStudentsCount) {
+            els.selectedStudentsCount.textContent = selected.length;
+        }
+    } else {
+        els.deleteSelectedStudentsBtn.style.display = 'none';
+    }
+}
+
+window.deleteSingleStudent = async (studentId, studentName) => {
+    if (!state.currentSubject) {
+        showToast('الرجاء اختيار المادة أولاً', 'error');
+        return;
+    }
+    
+    const displayName = studentName || 'هذا الطالب';
+    if (!confirm(`هل أنت متأكد من حذف الطالب "${displayName}"؟ سيتم حذف جميع سجلاته وحضوره لهذه المادة.`)) {
+        return;
+    }
+
+    showLoader();
+    try {
+        await window.dbService.deleteStudent(state.currentSubject, studentId);
+        
+        state.students = state.students.filter(s => s.id !== studentId);
+        Object.keys(state.attendance).forEach(date => {
+            if (state.attendance[date]) {
+                delete state.attendance[date][studentId];
+            }
+        });
+        if (state.grades) {
+            delete state.grades[studentId];
+        }
+
+        hideLoader();
+        renderAll();
+        showToast(`تم حذف الطالب "${displayName}" بنجاح`, 'success');
+    } catch (err) {
+        console.error(err);
+        hideLoader();
+        showToast('حدث خطأ أثناء حذف الطالب', 'error');
+    }
+};
+
 function renderAttendance() {
     const todayRecords = state.attendance[state.currentDate] || {};
     let html = '';
@@ -899,6 +1055,7 @@ function renderAttendance() {
             const isPresent = status === 'present' || status === true;
             const isAbsent = status === 'absent' || status === false;
             const isExcused = status === 'excused';
+            const safeName = (student.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
             html += `
                 <tr>
@@ -920,6 +1077,12 @@ function renderAttendance() {
                             </label>
                         </div>
                     </td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-outline-danger" style="padding: 0.25rem 0.5rem; border-color: transparent;" 
+                            title="حذف الطالب من المادة" onclick="deleteSingleStudent('${student.id}', '${safeName}')">
+                            <i class='bx bx-trash' style="font-size: 1.15rem;"></i>
+                        </button>
+                    </td>
                 </tr>
             `;
         });
@@ -931,27 +1094,51 @@ function renderAttendance() {
 function renderStudents() {
     let html = '';
     
+    if (els.studentsSummaryBadge) {
+        els.studentsSummaryBadge.textContent = `إجمالي الطلبة: ${state.students.length}`;
+    }
+    
+    if (els.selectAllStudentsCheckbox) {
+        els.selectAllStudentsCheckbox.checked = false;
+    }
+    updateDeleteSelectedBtn();
+
     if (!state.currentSubject) {
-        html = '<tr><td colspan="4" style="text-align: center;">يرجى إضافة واختيار مادة أولاً</td></tr>';
+        html = '<tr><td colspan="6" style="text-align: center;">يرجى إضافة واختيار مادة أولاً</td></tr>';
     } else if (state.students.length === 0) {
-        html = '<tr><td colspan="4" style="text-align: center;">لا يوجد طلبة مسجلين.</td></tr>';
+        html = '<tr><td colspan="6" style="text-align: center;">لا يوجد طلبة مسجلين. يمكنك كتابة اسم الطالب وإضافته أعلاه أو استيراد ملف Excel.</td></tr>';
     } else {
         state.students.forEach((student, index) => {
             const abs = calculateAbsence(student.id);
             const dangerTag = abs.count >= WARNING_THRESHOLD ? ' <span style="color:var(--danger); font-weight:bold;">(إنذار)</span>' : '';
+            const safeName = (student.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             
             html += `
                 <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="student-select-cb" data-id="${student.id}" style="cursor: pointer; width: 16px; height: 16px;">
+                    </td>
                     <td>${index + 1}</td>
                     <td><strong>${student.name}</strong></td>
                     <td class="text-success font-bold">${abs.present} <span class="text-muted" style="font-size: 0.8rem;">من أصل ${abs.held}</span></td>
                     <td><span style="color:var(--danger)">${abs.count} أيام</span> <span class="text-muted" style="font-size: 0.8rem;">(+${abs.excused} بعذر)</span>${dangerTag}</td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-outline-danger" style="padding: 0.25rem 0.6rem; font-size: 0.82rem;" 
+                            onclick="deleteSingleStudent('${student.id}', '${safeName}')" title="حذف هذا الطالب">
+                            <i class='bx bx-trash'></i> حذف
+                        </button>
+                    </td>
                 </tr>
             `;
         });
     }
     
     els.studentsTableBody.innerHTML = html;
+
+    const checkboxes = els.studentsTableBody.querySelectorAll('.student-select-cb');
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateDeleteSelectedBtn);
+    });
 }
 
 function renderWarnings() {

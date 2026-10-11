@@ -381,6 +381,18 @@ header {
     color: var(--primary);
 }
 
+.btn-outline-danger {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+}
+
+.btn-outline-danger:hover {
+    background: var(--danger);
+    color: white;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
 /* Inputs */
 .modern-input {
     width: 100%;

@@ -124,6 +124,89 @@ class DatabaseService {
         }
     }
 
+    async addStudent(subjectId, student) {
+        if (!subjectId || !student) return;
+        const currentStudents = JSON.parse(localStorage.getItem(`students_${subjectId}`) || '[]');
+        currentStudents.push(student);
+        localStorage.setItem(`students_${subjectId}`, JSON.stringify(currentStudents));
+
+        if (this.useFirebase && this.db) {
+            try {
+                const studentRef = this.db.collection(`subjects/${subjectId}/students`).doc(student.id.toString());
+                await studentRef.set(student);
+            } catch (e) {
+                console.error("Firebase addStudent error:", e);
+            }
+        }
+    }
+
+    async deleteStudents(subjectId, studentIds) {
+        if (!subjectId || !studentIds || !studentIds.length) return;
+        const idSet = new Set(studentIds.map(id => String(id)));
+
+        // 1. Filter local students
+        const currentStudents = JSON.parse(localStorage.getItem(`students_${subjectId}`) || '[]');
+        const updatedStudents = currentStudents.filter(s => !idSet.has(String(s.id)));
+        localStorage.setItem(`students_${subjectId}`, JSON.stringify(updatedStudents));
+
+        // 2. Clean attendance in localStorage
+        const allAttendance = JSON.parse(localStorage.getItem('attendance_v2') || '{}');
+        if (allAttendance[subjectId]) {
+            Object.keys(allAttendance[subjectId]).forEach(date => {
+                if (allAttendance[subjectId][date]) {
+                    idSet.forEach(id => {
+                        delete allAttendance[subjectId][date][id];
+                    });
+                }
+            });
+            localStorage.setItem('attendance_v2', JSON.stringify(allAttendance));
+        }
+
+        // 3. Clean grades in localStorage
+        const allGrades = JSON.parse(localStorage.getItem('grades_v1') || '{}');
+        if (allGrades[subjectId]) {
+            idSet.forEach(id => {
+                delete allGrades[subjectId][id];
+            });
+            localStorage.setItem('grades_v1', JSON.stringify(allGrades));
+        }
+
+        // 4. Update Firebase Firestore if enabled
+        if (this.useFirebase && this.db) {
+            try {
+                const batch = this.db.batch();
+                idSet.forEach(id => {
+                    const studentRef = this.db.collection(`subjects/${subjectId}/students`).doc(id);
+                    batch.delete(studentRef);
+                });
+
+                const gradesRef = this.db.collection(`subjects/${subjectId}/grades`).doc('all');
+                const gradesDoc = await gradesRef.get();
+                if (gradesDoc.exists && gradesDoc.data().records) {
+                    const records = { ...gradesDoc.data().records };
+                    let changed = false;
+                    idSet.forEach(id => {
+                        if (records[id]) {
+                            delete records[id];
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        batch.set(gradesRef, { records }, { merge: true });
+                    }
+                }
+
+                await batch.commit();
+            } catch (e) {
+                console.error("Firebase deleteStudents error:", e);
+            }
+        }
+    }
+
+    async deleteStudent(subjectId, studentId) {
+        return this.deleteStudents(subjectId, [studentId]);
+    }
+
     async clearStudents(subjectId) {
         if (!subjectId) throw new Error('Subject ID is required to clear students');
         localStorage.removeItem(`students_${subjectId}`);

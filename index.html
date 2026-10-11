@@ -132,9 +132,10 @@
                         <table class="data-table" id="attendanceTable">
                             <thead>
                                 <tr>
-                                    <th>التسلسل</th>
+                                    <th style="width: 70px;">التسلسل</th>
                                     <th>اسم الطالب</th>
                                     <th>حاضر؟</th>
+                                    <th style="width: 70px; text-align: center;">حذف</th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody">
@@ -146,19 +147,46 @@
 
                 <!-- Students View -->
                 <section id="students" class="view">
-                    <div class="section-header-flex">
-                        <h1 class="page-title">سجل الطلبة</h1>
-                        <button id="clearStudentsBtn" class="btn btn-danger"><i class='bx bx-trash'></i> مسح جميع الطلبة</button>
+                    <div class="section-header-flex" style="flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h1 class="page-title" style="margin-bottom: 0.3rem;">سجل الطلبة</h1>
+                            <p class="text-muted" style="font-size: 0.9rem;">إدارة بيانات الطلاب، الحذف الفردي أو الجماعي، وإضافة أسماء جديدة.</p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                            <button id="deleteSelectedStudentsBtn" class="btn btn-danger" style="display: none;">
+                                <i class='bx bx-trash'></i> حذف الطلاب المحددين (<span id="selectedStudentsCount">0</span>)
+                            </button>
+                            <button id="clearStudentsBtn" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger);">
+                                <i class='bx bx-trash-alt'></i> مسح جميع الطلبة
+                            </button>
+                        </div>
                     </div>
                     
+                    <!-- Quick Add & Stats Bar -->
+                    <div class="card mt-1 mb-2" style="padding: 1rem; background: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex: 1; min-width: 280px;">
+                            <input type="text" id="quickAddStudentInput" class="modern-input" placeholder="اكتب اسم الطالب لإضافته..." style="padding: 0.5rem 0.8rem; max-width: 320px;">
+                            <button id="quickAddStudentBtn" class="btn btn-primary" style="white-space: nowrap; padding: 0.5rem 1rem;">
+                                <i class='bx bx-user-plus'></i> إضافة طالب
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span class="text-muted" style="font-weight: 600; font-size: 0.9rem;" id="studentsSummaryBadge">إجمالي الطلبة: 0</span>
+                        </div>
+                    </div>
+
                     <div class="table-responsive mt-2">
-                        <table class="data-table">
+                        <table class="data-table" id="studentsTable">
                             <thead>
                                 <tr>
-                                    <th>التسلسل</th>
-                                    <th>الاسم</th>
+                                    <th style="width: 45px; text-align: center;">
+                                        <input type="checkbox" id="selectAllStudentsCheckbox" title="تحديد الكل" style="cursor: pointer; width: 16px; height: 16px;">
+                                    </th>
+                                    <th style="width: 70px;">التسلسل</th>
+                                    <th>اسم الطالب</th>
                                     <th>إجمالي الحضور</th>
                                     <th>إجمالي الغيابات</th>
+                                    <th style="width: 100px; text-align: center;">الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody id="studentsTableBody">
