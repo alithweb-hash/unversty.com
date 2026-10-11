@@ -71,7 +71,8 @@ class ExcelService {
                 attendanceStatuses.push(statusText);
             });
             
-            let status = absenceCount >= 2 ? 'إنذار' : 'منتظم';
+            const warningLimit = (typeof WARNING_THRESHOLD !== 'undefined') ? WARNING_THRESHOLD : 3;
+            let status = absenceCount >= warningLimit ? 'إنذار' : 'منتظم';
             
             row.push(absenceCount);
             row.push(status);
@@ -134,10 +135,11 @@ class ExcelService {
                 }
             });
             
-            const statusStr = absenceCount >= 2 ? 'إنذار' : 'منتظم';
+            const warningLimit = (typeof WARNING_THRESHOLD !== 'undefined') ? WARNING_THRESHOLD : 3;
+            const statusStr = absenceCount >= warningLimit ? 'إنذار' : 'منتظم';
             
             let statusStyle = 'padding: 5px; text-align: center; font-weight: bold; ';
-            if (absenceCount >= 2) {
+            if (absenceCount >= warningLimit) {
                 statusStyle += 'background-color: #fecaca; color: #dc2626;'; // Danger Red
             } else {
                 statusStyle += 'background-color: #dcfce7; color: #16a34a;'; // Success Green
