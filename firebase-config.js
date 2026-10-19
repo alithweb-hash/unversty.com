@@ -5,6 +5,9 @@ class DatabaseService {
         this.app = null;
         this.db = null;
         this.useFirebase = false;
+        this._lastGrades = {};      // last grades known to be in the cloud, per subject
+        this._unsubscribers = [];   // active real-time listeners
+        this._watchedSubject = null;
         this.init();
     }
 
@@ -300,6 +303,18 @@ class DatabaseService {
     }
 
     // Grades
+    // Only students whose grades changed since the last cloud sync are pushed,
+    // so we never overwrite edits the desktop app made for other students.
+    _diffGrades(subjectId, gradesObj) {
+        const last = this._lastGrades[subjectId];
+        if (!last) return gradesObj;
+        const changed = {};
+        Object.keys(gradesObj).forEach(id => {
+            if (JSON.stringify(gradesObj[id]) !== JSON.stringify(last[id])) changed[id] = gradesObj[id];
+        });
+        return changed;
+    }
+
     async saveGrades(subjectId, gradesObj) {
         if (!subjectId) throw new Error('Subject ID is required');
         
@@ -309,12 +324,45 @@ class DatabaseService {
 
         if (this.useFirebase && this.db) {
             try {
+                const changed = this._diffGrades(subjectId, gradesObj);
+                if (Object.keys(changed).length === 0) return;
+                this._lastGrades[subjectId] = JSON.parse(JSON.stringify(gradesObj));
                 const gradesRef = this.db.collection(`subjects/${subjectId}/grades`).doc('all');
-                await gradesRef.set({ records: gradesObj }, { merge: true });
+                await gradesRef.set({ records: changed }, { merge: true });
             } catch (e) {
                 console.error("Firebase saveGrades error:", e);
             }
         }
+    }
+
+    // Real-time sync (website <-> desktop)
+    unwatchSubject() {
+        this._unsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
+        this._unsubscribers = [];
+        this._watchedSubject = null;
+    }
+
+    // Listens to grades (incl. short quizzes), attendance and students of a subject.
+    // onChange(kind) is called when ANOTHER client (e.g. the desktop app) changes the data.
+    watchSubject(subjectId, onChange) {
+        if (!this.useFirebase || !this.db || !subjectId) return;
+        if (this._watchedSubject === subjectId) return;
+        this.unwatchSubject();
+        this._watchedSubject = subjectId;
+
+        const listen = (kind, ref) => {
+            let first = true;
+            const unsub = ref.onSnapshot((snap) => {
+                if (first) { first = false; return; }          // initial load already rendered
+                if (snap.metadata.hasPendingWrites) return;     // our own local write
+                if (typeof onChange === 'function') onChange(kind);
+            }, (err) => console.warn('Realtime listener error (' + kind + '):', err && err.code));
+            this._unsubscribers.push(unsub);
+        };
+
+        listen('grades', this.db.collection(`subjects/${subjectId}/grades`));
+        listen('attendance', this.db.collection(`attendance_v2/${subjectId}/dates`));
+        listen('students', this.db.collection(`subjects/${subjectId}/students`));
     }
     
     async getGrades(subjectId) {
@@ -324,8 +372,10 @@ class DatabaseService {
             try {
                 const doc = await this.db.collection(`subjects/${subjectId}/grades`).doc('all').get();
                 if (doc.exists && doc.data().records) {
+                    this._lastGrades[subjectId] = JSON.parse(JSON.stringify(doc.data().records));
                     return doc.data().records;
                 }
+                this._lastGrades[subjectId] = {};
                 return {};
             } catch (e) {
                 console.warn("Firebase getGrades failed, fallback to local:", e);

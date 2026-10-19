@@ -137,7 +137,34 @@ async function loadData() {
         state.grades = {};
         state.materials = [];
     }
+
+    // Real-time sync: refresh automatically when the website / desktop app changes quizzes, grades or attendance
+    if (window.dbService && typeof window.dbService.watchSubject === 'function') {
+        window.dbService.watchSubject(state.currentSubject, window.onRemoteDataChanged);
+    }
 }
+
+// Called when ANOTHER client (website / desktop app) modified this subject's data
+let remoteRefreshTimer = null;
+window.onRemoteDataChanged = function () {
+    clearTimeout(remoteRefreshTimer);
+    const attempt = async () => {
+        // Don't wipe what the user is typing right now; retry shortly
+        const ae = document.activeElement;
+        if (ae && ae.tagName === 'INPUT' && ae.closest('table')) {
+            remoteRefreshTimer = setTimeout(attempt, 1500);
+            return;
+        }
+        try {
+            await loadData();
+            renderAll();
+            showToast('تم تحديث البيانات من الجهاز/الموقع الآخر ✓', 'success');
+        } catch (e) {
+            console.error('Remote refresh failed:', e);
+        }
+    };
+    remoteRefreshTimer = setTimeout(attempt, 600);
+};
 
 // Event Listeners Setup
 function setupEvents() {
