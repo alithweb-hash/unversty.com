@@ -12,6 +12,7 @@ let state = {
     materials: [], // { id, name, type (curriculum|exam), url, path, subjectId, date }
     grades: {}, // { 'stu-id': { quizzes: 10, final: 100, shortQuizzes: [10, 8, 9] } }
     numQuizzes: 3, // Default number of short quizzes
+    numAssignments: 5, // Number of assignments (max 5)
     totalLectures: parseInt(localStorage.getItem('totalLectures') || '15'),
     currentDate: new Date().toISOString().split('T')[0]
 };
@@ -83,6 +84,11 @@ const els = {
     quizzesTableHeader: document.getElementById('quizzesTableHeader'),
     numQuizzesInput: document.getElementById('numQuizzesInput'),
     saveQuizzesBtn: document.getElementById('saveQuizzesBtn'),
+    
+    // Assignments
+    assignmentsTableBody: document.getElementById('assignmentsTableBody'),
+    assignmentsTableHeader: document.getElementById('assignmentsTableHeader'),
+    numAssignmentsInput: document.getElementById('numAssignmentsInput'),
     
     // Materials
     currNameInput: document.getElementById('currNameInput'),
@@ -179,11 +185,23 @@ function setupEvents() {
             document.getElementById(target).classList.add('active-view');
             
             if (target === 'quizzes') renderQuizzes();
+            if (target === 'assignments') renderAssignments();
             
             renderAll();
         });
     });
     
+    // Assignments Events
+    if (els.numAssignmentsInput) {
+        els.numAssignmentsInput.addEventListener('change', (e) => {
+            let n = parseInt(e.target.value) || 5;
+            n = Math.min(5, Math.max(1, n));
+            e.target.value = n;
+            state.numAssignments = n;
+            renderAssignments();
+        });
+    }
+
     // Quizzes Events
     els.numQuizzesInput.addEventListener('change', (e) => {
         state.numQuizzes = parseInt(e.target.value) || 3;
@@ -807,6 +825,98 @@ function renderAll() {
     renderWarnings();
     renderMaterials();
     renderQuizzes();
+    renderAssignments();
+}
+
+function renderAssignments() {
+    if (!els.assignmentsTableHeader || !els.assignmentsTableBody) return;
+    const n = state.numAssignments;
+
+    let headerHtml = `<th style="width: 50px;">ت</th><th>اسم الطالب</th><th>الواجب المسلّم</th>`;
+    for (let i = 1; i <= n; i++) headerHtml += `<th>الواجب ${i} <small>(من 10)</small></th>`;
+    headerHtml += `<th style="background-color: #dcfce7;">المجموع</th><th style="background-color: #dbeafe;">المعدل (درجة الواجبات)</th>`;
+    els.assignmentsTableHeader.innerHTML = headerHtml;
+    els.assignmentsTableBody.innerHTML = '';
+
+    if (state.students.length === 0) {
+        els.assignmentsTableBody.innerHTML = `<tr><td colspan="${n + 5}" style="text-align: center;">لا يوجد طلاب في هذه المادة</td></tr>`;
+        return;
+    }
+
+    const calc = (stuId) => {
+        let sum = 0, graded = 0, submitted = 0;
+        for (let i = 1; i <= n; i++) {
+            const sub = document.querySelector(`.asn-submit[data-stu="${stuId}"][data-asn="${i}"]`);
+            if (sub && sub.checked) submitted++;
+            const inp = document.querySelector(`.asn-input[data-stu="${stuId}"][data-asn="${i}"]`);
+            const v = inp ? inp.value.trim() : '';
+            if (v !== '' && !isNaN(parseFloat(v))) { sum += parseFloat(v); graded++; }
+        }
+        return { sum, graded, submitted, avg: graded > 0 ? sum / graded : 0 };
+    };
+
+    state.students.forEach((stu, index) => {
+        const g = state.grades[stu.id] || {};
+        const scores = g.assignmentScores || [];
+        const subs = g.assignmentSubmitted || [];
+        let html = `<td>${index + 1}</td><td style="font-weight: 600;">${stu.name}</td><td id="asn-count-${stu.id}" style="font-weight:bold;">0 / ${n}</td>`;
+        for (let i = 1; i <= n; i++) {
+            const val = (scores[i-1] !== undefined && scores[i-1] !== null) ? scores[i-1] : '';
+            const checked = subs[i-1] ? 'checked' : '';
+            html += `<td style="white-space: nowrap;">
+                <input type="checkbox" class="asn-submit" data-stu="${stu.id}" data-asn="${i}" ${checked} title="سلّم الواجب" style="cursor:pointer; width:16px; height:16px; vertical-align: middle;">
+                <input type="number" class="modern-input asn-input" data-stu="${stu.id}" data-asn="${i}" value="${val}" step="0.5" min="0" max="10" style="width: 60px; padding: 4px; text-align: center;">
+            </td>`;
+        }
+        html += `<td style="font-weight: bold; color: #166534; background-color: #dcfce7;" id="asn-sum-${stu.id}">0</td>
+                 <td style="font-weight: bold; color: #1e40af; background-color: #dbeafe;" id="asn-avg-${stu.id}">0</td>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = html;
+        els.assignmentsTableBody.appendChild(tr);
+    });
+
+    const refreshRow = (stuId) => {
+        const r = calc(stuId);
+        document.getElementById(`asn-sum-${stuId}`).innerText = r.sum;
+        document.getElementById(`asn-avg-${stuId}`).innerText = Math.round(r.avg);
+        document.getElementById(`asn-count-${stuId}`).innerText = `${r.submitted} / ${n}`;
+        return r;
+    };
+    state.students.forEach(stu => refreshRow(stu.id));
+
+    const persist = async (stuId) => {
+        const r = refreshRow(stuId);
+        const scores = [], subs = [];
+        for (let i = 1; i <= n; i++) {
+            const inp = document.querySelector(`.asn-input[data-stu="${stuId}"][data-asn="${i}"]`);
+            const v = inp ? inp.value.trim() : '';
+            scores.push(v !== '' && !isNaN(parseFloat(v)) ? Math.min(10, Math.max(0, parseFloat(v))) : '');
+            const sub = document.querySelector(`.asn-submit[data-stu="${stuId}"][data-asn="${i}"]`);
+            subs.push(!!(sub && sub.checked));
+        }
+        if (!state.grades[stuId]) state.grades[stuId] = {};
+        state.grades[stuId].assignmentScores = scores;
+        state.grades[stuId].assignmentSubmitted = subs;
+        if (window.updateGrade) {
+            window.updateGrade(stuId, 'assignment', Math.round(r.avg));
+        } else {
+            state.grades[stuId].assignment = Math.round(r.avg);
+            if (state.currentSubject) await window.dbService.saveGrades(state.currentSubject, state.grades);
+        }
+    };
+
+    document.querySelectorAll('.asn-input, .asn-submit').forEach(el => {
+        const stuId = el.getAttribute('data-stu');
+        el.addEventListener('input', () => refreshRow(stuId));
+        el.addEventListener('change', () => {
+            // Entering a grade marks the assignment as submitted automatically
+            if (el.classList.contains('asn-input') && el.value.trim() !== '') {
+                const sub = document.querySelector(`.asn-submit[data-stu="${stuId}"][data-asn="${el.getAttribute('data-asn')}"]`);
+                if (sub) sub.checked = true;
+            }
+            persist(stuId);
+        });
+    });
 }
 
 function renderQuizzes() {

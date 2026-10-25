@@ -24,6 +24,7 @@
                 <li data-target="students"><i class='bx bxs-user-detail'></i> <span>سجل الطلبة</span></li>
                 <li data-target="grades"><i class='bx bxs-bar-chart-alt-2'></i> <span>درجات الطلاب</span></li>
                 <li data-target="quizzes"><i class='bx bx-task'></i> <span>الاختبارات القصيرة</span></li>
+                <li data-target="assignments"><i class='bx bx-book-content'></i> <span>الواجبات</span></li>
                 <li data-target="warnings"><i class='bx bxs-error' style="color: #ef4444;"></i> <span>تقرير الإنذارات</span></li>
                 <li data-target="materials"><i class='bx bxs-folder-open'></i> <span>المناهج والاختبارات</span></li>
                 <li data-target="reports"><i class='bx bxs-report'></i> <span>التقارير والاستيراد</span></li>
@@ -260,6 +261,30 @@
                             </thead>
                             <tbody id="quizzesTableBody">
                                 <!-- Populated dynamically -->
+                                <tr><td colspan="10" style="text-align: center;">يرجى إضافة طلاب أولاً</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Assignments View -->
+                <section id="assignments" class="view">
+                    <div class="section-header-flex">
+                        <div>
+                            <h1 class="page-title">الواجبات</h1>
+                            <p class="text-muted" style="font-size: 0.9rem;">سجّل تسليم الطالب وأعطِ درجة لكل واجب (حتى 5 واجبات). المعدل يُحتسب تلقائياً في درجة الواجبات (من 10).</p>
+                        </div>
+                        <div class="date-picker-container" style="display: flex; gap: 10px; align-items: center;">
+                            <label style="font-weight: bold;">عدد الواجبات (حتى 5):</label>
+                            <input type="number" id="numAssignmentsInput" class="modern-input" value="5" min="1" max="5" style="width: 80px;">
+                        </div>
+                    </div>
+                    <div class="table-responsive mt-2">
+                        <table class="data-table" id="assignmentsTable">
+                            <thead>
+                                <tr id="assignmentsTableHeader"></tr>
+                            </thead>
+                            <tbody id="assignmentsTableBody">
                                 <tr><td colspan="10" style="text-align: center;">يرجى إضافة طلاب أولاً</td></tr>
                             </tbody>
                         </table>
@@ -536,6 +561,6 @@
     <!-- Application Logic -->
     <script src="firebase-config.js?v=3"></script>
     <script src="excel-tools.js"></script>
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>
