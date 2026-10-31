@@ -493,6 +493,13 @@ function setupEvents() {
                 showToast('الرجاء تحديد النطاق الزمني للتصدير', 'error');
                 return;
             }
+        } else {
+            // Cumulative: from the very beginning up to the manually entered end date
+            dateTo = els.exportDateTo.value;
+            if (!dateTo) {
+                showToast('الرجاء إدخال تاريخ آخر يوم (إلى تاريخ) للنسخ التراكمي', 'error');
+                return;
+            }
         }
 
         showLoader();
@@ -502,7 +509,12 @@ function setupEvents() {
             // Filter dates
             let filteredAttendance = {};
             if (isAll) {
-                filteredAttendance = subAttendance; // Export everything
+                // Everything from the beginning up to (and including) dateTo
+                Object.keys(subAttendance).forEach(date => {
+                    if (date <= dateTo) {
+                        filteredAttendance[date] = subAttendance[date];
+                    }
+                });
             } else {
                 Object.keys(subAttendance).forEach(date => {
                     if (date >= dateFrom && date <= dateTo) {
