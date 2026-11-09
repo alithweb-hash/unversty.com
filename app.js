@@ -12,7 +12,7 @@ let state = {
     materials: [], // { id, name, type (curriculum|exam), url, path, subjectId, date }
     grades: {}, // { 'stu-id': { quizzes: 10, final: 100, shortQuizzes: [10, 8, 9] } }
     numQuizzes: 3, // Default number of short quizzes
-    numAssignments: 5, // Number of assignments (max 5)
+    numAssignments: parseInt(localStorage.getItem('numAssignments') || '5'), // Number of assignments (default 5)
     totalLectures: parseInt(localStorage.getItem('totalLectures') || '15'),
     currentDate: new Date().toISOString().split('T')[0]
 };
@@ -193,12 +193,41 @@ function setupEvents() {
     
     // Assignments Events
     if (els.numAssignmentsInput) {
+        els.numAssignmentsInput.value = state.numAssignments;
         els.numAssignmentsInput.addEventListener('change', (e) => {
             let n = parseInt(e.target.value) || 5;
             n = Math.min(5, Math.max(1, n));
             e.target.value = n;
             state.numAssignments = n;
+            localStorage.setItem('numAssignments', n);
             renderAssignments();
+
+            // Re-calculate and persist grades for all students according to the new count
+            const maxPerAsn = n === 4 ? 2.5 : (n === 5 ? 2 : (n > 0 ? +(10 / n).toFixed(2) : 2));
+            state.students.forEach(stu => {
+                const g = state.grades[stu.id] || {};
+                const scores = g.assignmentScores || [];
+                let sum = 0;
+                let hasAny = false;
+                for (let i = 0; i < n; i++) {
+                    const val = scores[i];
+                    if (val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val))) {
+                        sum += Math.min(maxPerAsn, Math.max(0, parseFloat(val)));
+                        hasAny = true;
+                    }
+                }
+                if (hasAny) {
+                    const finalGrade = Math.min(10, Math.max(0, parseFloat(sum.toFixed(2))));
+                    if (window.updateGrade) {
+                        window.updateGrade(stu.id, 'assignment', finalGrade);
+                    } else {
+                        g.assignment = finalGrade;
+                    }
+                }
+            });
+            if (state.currentSubject && window.dbService) {
+                window.dbService.saveGrades(state.currentSubject, state.grades);
+            }
         });
     }
 
@@ -843,15 +872,16 @@ function renderAll() {
 function renderAssignments() {
     if (!els.assignmentsTableHeader || !els.assignmentsTableBody) return;
     const n = state.numAssignments;
+    const maxPerAsn = n === 4 ? 2.5 : (n === 5 ? 2 : (n > 0 ? +(10 / n).toFixed(2) : 2));
 
     let headerHtml = `<th style="width: 50px;">ت</th><th>اسم الطالب</th><th>الواجب المسلّم</th>`;
-    for (let i = 1; i <= n; i++) headerHtml += `<th>الواجب ${i} <small>(من 10)</small></th>`;
-    headerHtml += `<th style="background-color: #dcfce7;">المجموع</th><th style="background-color: #dbeafe;">المعدل (درجة الواجبات)</th>`;
+    for (let i = 1; i <= n; i++) headerHtml += `<th>الواجب ${i} <small>(من ${maxPerAsn})</small></th>`;
+    headerHtml += `<th style="background-color: #dcfce7;">مجموع الواجبات (من 10)</th>`;
     els.assignmentsTableHeader.innerHTML = headerHtml;
     els.assignmentsTableBody.innerHTML = '';
 
     if (state.students.length === 0) {
-        els.assignmentsTableBody.innerHTML = `<tr><td colspan="${n + 5}" style="text-align: center;">لا يوجد طلاب في هذه المادة</td></tr>`;
+        els.assignmentsTableBody.innerHTML = `<tr><td colspan="${n + 4}" style="text-align: center;">لا يوجد طلاب في هذه المادة</td></tr>`;
         return;
     }
 
@@ -862,9 +892,14 @@ function renderAssignments() {
             if (sub && sub.checked) submitted++;
             const inp = document.querySelector(`.asn-input[data-stu="${stuId}"][data-asn="${i}"]`);
             const v = inp ? inp.value.trim() : '';
-            if (v !== '' && !isNaN(parseFloat(v))) { sum += parseFloat(v); graded++; }
+            if (v !== '' && !isNaN(parseFloat(v))) {
+                const valNum = Math.min(maxPerAsn, Math.max(0, parseFloat(v)));
+                sum += valNum;
+                graded++;
+            }
         }
-        return { sum, graded, submitted, avg: graded > 0 ? sum / graded : 0 };
+        sum = Math.min(10, Math.max(0, parseFloat(sum.toFixed(2))));
+        return { sum, graded, submitted };
     };
 
     state.students.forEach((stu, index) => {
@@ -873,15 +908,17 @@ function renderAssignments() {
         const subs = g.assignmentSubmitted || [];
         let html = `<td>${index + 1}</td><td style="font-weight: 600;">${stu.name}</td><td id="asn-count-${stu.id}" style="font-weight:bold;">0 / ${n}</td>`;
         for (let i = 1; i <= n; i++) {
-            const val = (scores[i-1] !== undefined && scores[i-1] !== null) ? scores[i-1] : '';
+            let val = (scores[i-1] !== undefined && scores[i-1] !== null) ? scores[i-1] : '';
+            if (val !== '' && !isNaN(parseFloat(val)) && parseFloat(val) > maxPerAsn) {
+                val = maxPerAsn;
+            }
             const checked = subs[i-1] ? 'checked' : '';
             html += `<td style="white-space: nowrap;">
                 <input type="checkbox" class="asn-submit" data-stu="${stu.id}" data-asn="${i}" ${checked} title="سلّم الواجب" style="cursor:pointer; width:16px; height:16px; vertical-align: middle;">
-                <input type="number" class="modern-input asn-input" data-stu="${stu.id}" data-asn="${i}" value="${val}" step="0.5" min="0" max="10" style="width: 60px; padding: 4px; text-align: center;">
+                <input type="number" class="modern-input asn-input" data-stu="${stu.id}" data-asn="${i}" value="${val}" step="any" min="0" max="${maxPerAsn}" placeholder="من ${maxPerAsn}" style="width: 65px; padding: 4px; text-align: center;">
             </td>`;
         }
-        html += `<td style="font-weight: bold; color: #166534; background-color: #dcfce7;" id="asn-sum-${stu.id}">0</td>
-                 <td style="font-weight: bold; color: #1e40af; background-color: #dbeafe;" id="asn-avg-${stu.id}">0</td>`;
+        html += `<td style="font-weight: bold; color: #166534; background-color: #dcfce7;" id="asn-sum-${stu.id}">0</td>`;
         const tr = document.createElement('tr');
         tr.innerHTML = html;
         els.assignmentsTableBody.appendChild(tr);
@@ -889,9 +926,12 @@ function renderAssignments() {
 
     const refreshRow = (stuId) => {
         const r = calc(stuId);
-        document.getElementById(`asn-sum-${stuId}`).innerText = r.sum;
-        document.getElementById(`asn-avg-${stuId}`).innerText = Math.round(r.avg);
-        document.getElementById(`asn-count-${stuId}`).innerText = `${r.submitted} / ${n}`;
+        const sumEl = document.getElementById(`asn-sum-${stuId}`);
+        if (sumEl) sumEl.innerText = r.sum;
+        const avgEl = document.getElementById(`asn-avg-${stuId}`);
+        if (avgEl) avgEl.innerText = r.sum;
+        const countEl = document.getElementById(`asn-count-${stuId}`);
+        if (countEl) countEl.innerText = `${r.submitted} / ${n}`;
         return r;
     };
     state.students.forEach(stu => refreshRow(stu.id));
@@ -902,17 +942,22 @@ function renderAssignments() {
         for (let i = 1; i <= n; i++) {
             const inp = document.querySelector(`.asn-input[data-stu="${stuId}"][data-asn="${i}"]`);
             const v = inp ? inp.value.trim() : '';
-            scores.push(v !== '' && !isNaN(parseFloat(v)) ? Math.min(10, Math.max(0, parseFloat(v))) : '');
+            const valNum = (v !== '' && !isNaN(parseFloat(v))) ? Math.min(maxPerAsn, Math.max(0, parseFloat(v))) : '';
+            scores.push(valNum);
+            if (inp && valNum !== '' && parseFloat(v) > maxPerAsn) {
+                inp.value = valNum;
+            }
             const sub = document.querySelector(`.asn-submit[data-stu="${stuId}"][data-asn="${i}"]`);
             subs.push(!!(sub && sub.checked));
         }
         if (!state.grades[stuId]) state.grades[stuId] = {};
         state.grades[stuId].assignmentScores = scores;
         state.grades[stuId].assignmentSubmitted = subs;
+        const finalGrade = Math.min(10, Math.max(0, parseFloat(r.sum.toFixed(2))));
         if (window.updateGrade) {
-            window.updateGrade(stuId, 'assignment', Math.round(r.avg));
+            window.updateGrade(stuId, 'assignment', finalGrade);
         } else {
-            state.grades[stuId].assignment = Math.round(r.avg);
+            state.grades[stuId].assignment = finalGrade;
             if (state.currentSubject) await window.dbService.saveGrades(state.currentSubject, state.grades);
         }
     };
@@ -1792,7 +1837,25 @@ function renderGrades() {
 
         if (qz !== '') qz = Math.round(parseFloat(qz)); // Force round for display
 
-        const asn = g.assignment !== undefined ? g.assignment : '';
+        let asn = g.assignment !== undefined ? g.assignment : '';
+        if (g.assignmentScores && Array.isArray(g.assignmentScores) && g.assignmentScores.length > 0) {
+            let asnSum = 0;
+            let hasAny = false;
+            const n = state.numAssignments || 5;
+            const maxPerAsn = n === 4 ? 2.5 : (n === 5 ? 2 : (n > 0 ? +(10 / n).toFixed(2) : 2));
+            for (let i = 0; i < n; i++) {
+                const val = g.assignmentScores[i];
+                if (val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val))) {
+                    asnSum += Math.min(maxPerAsn, Math.max(0, parseFloat(val)));
+                    hasAny = true;
+                }
+            }
+            if (hasAny) {
+                asn = Math.min(10, Math.max(0, parseFloat(asnSum.toFixed(2))));
+                g.assignment = asn;
+            }
+        }
+
         const lab = g.lab !== undefined ? g.lab : '';
         const prac = g.practical !== undefined ? g.practical : '';
         const rep = g.report !== undefined ? g.report : '';
@@ -1821,7 +1884,7 @@ function renderGrades() {
             <td style="white-space: nowrap; border: 1px solid #000;"><strong>${student.name}</strong></td>
             
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${qz}" onchange="updateGrade('${student.id}', 'quizzes', this.value)" min="0" max="10"></td>
-            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${asn}" onchange="updateGrade('${student.id}', 'assignment', this.value)" min="0" max="10"></td>
+            <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${asn}" step="any" onchange="updateGrade('${student.id}', 'assignment', this.value)" min="0" max="10"></td>
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${lab}" onchange="updateGrade('${student.id}', 'lab', this.value)" min="0" max="10"></td>
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${prac}" onchange="updateGrade('${student.id}', 'practical', this.value)" min="0" max="10"></td>
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${rep}" onchange="updateGrade('${student.id}', 'report', this.value)" min="0" max="10"></td>
