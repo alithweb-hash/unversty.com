@@ -1857,14 +1857,17 @@ function renderGrades() {
         // Dynamically recalculate totals in case quizzes changed
         const form = (parseFloat(qz) || 0) + (parseFloat(asn) || 0) + (parseFloat(lab) || 0) + (parseFloat(prac) || 0) + (parseFloat(rep) || 0) + (parseFloat(sem) || 0);
         g.formative = form;
+        const formStatus = form >= 25 ? 'ناجح' : 'راسب';
+        g.formativeStatus = formStatus;
+        const formStatusColor = form >= 25 ? 'green' : 'red';
         
         const final = form + (parseFloat(mid) || 0) + (parseFloat(fTheo) || 0) + (parseFloat(fPrac) || 0);
         g.final = final;
         
-        const status = final >= 25 ? 'ناجح' : 'راسب';
+        const status = final >= 50 ? 'ناجح' : 'راسب';
         g.status = status;
         
-        const statusColor = final >= 25 ? 'green' : 'red';
+        const statusColor = final >= 50 ? 'green' : 'red';
         const notes = g.notes || '';
         
         html += `
@@ -1878,7 +1881,10 @@ function renderGrades() {
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${prac}" onchange="updateGrade('${student.id}', 'practical', this.value)" min="0" max="10"></td>
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${rep}" onchange="updateGrade('${student.id}', 'report', this.value)" min="0" max="10"></td>
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${sem}" onchange="updateGrade('${student.id}', 'seminar', this.value)" min="0" max="10"></td>
-            <td style="text-align: center; background-color: #dcfce7; font-weight: bold; border: 1px solid #000;" class="formative-total">${form}</td>
+            <td style="text-align: center; background-color: #dcfce7; font-weight: bold; border: 1px solid #000;">
+                <div class="formative-total">${form}</div>
+                <div class="formative-status" style="color: ${formStatusColor}; font-size: 0.85rem; margin-top: 3px;">${formStatus}</div>
+            </td>
             
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${mid}" onchange="updateGrade('${student.id}', 'midExam', this.value)" min="0" max="10"></td>
             <td style="text-align: center; border: 1px solid #000;"><input type="number" class="grade-input" value="${fTheo}" onchange="updateGrade('${student.id}', 'finalTheoretical', this.value)" min="0" max="30"></td>
@@ -1905,20 +1911,26 @@ window.updateGrade = function(studentId, field, value) {
     const g = state.grades[studentId];
     const formative = (parseFloat(g.quizzes) || 0) + (parseFloat(g.assignment) || 0) + (parseFloat(g.lab) || 0) + (parseFloat(g.practical) || 0) + (parseFloat(g.report) || 0) + (parseFloat(g.seminar) || 0);
     g.formative = formative;
+    g.formativeStatus = formative >= 25 ? 'ناجح' : 'راسب';
     
     const final = formative + (parseFloat(g.midExam) || 0) + (parseFloat(g.finalTheoretical) || 0) + (parseFloat(g.finalPractical) || 0);
     g.final = final;
     
-    g.status = final >= 25 ? 'ناجح' : 'راسب';
+    g.status = final >= 50 ? 'ناجح' : 'راسب';
     
     // Update DOM instantly
     const tr = document.getElementById(`grade-row-${studentId}`);
     if (tr) {
         tr.querySelector('.formative-total').textContent = formative;
+        const formStatusEl = tr.querySelector('.formative-status');
+        if (formStatusEl) {
+            formStatusEl.textContent = g.formativeStatus;
+            formStatusEl.style.color = formative >= 25 ? 'green' : 'red';
+        }
         tr.querySelector('.final-total').textContent = final;
         const statusEl = tr.querySelector('.status-note');
         statusEl.textContent = g.status;
-        statusEl.style.color = final >= 25 ? 'green' : 'red';
+        statusEl.style.color = final >= 50 ? 'green' : 'red';
     }
     
     // Debounce save
