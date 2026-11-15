@@ -1804,6 +1804,17 @@ window.deleteMaterialFile = async (encodedObj) => {
     }
 };
 
+// حساب مجموع أعلى 4 حقول قبل المد (من 40)
+function calculateFormative40(qz, asn, lab, prac, rep, sem) {
+    const vals = [qz, asn, lab, prac, rep, sem]
+        .map(v => parseFloat(v))
+        .filter(v => !isNaN(v) && v > 0);
+    vals.sort((a, b) => b - a);
+    const top4 = vals.slice(0, 4);
+    const sum = top4.reduce((acc, curr) => acc + curr, 0);
+    return parseFloat(sum.toFixed(2));
+}
+
 function renderGrades() {
     if (!els.gradesTableBody) return;
     
@@ -1854,14 +1865,16 @@ function renderGrades() {
         const fTheo = g.finalTheoretical !== undefined ? g.finalTheoretical : '';
         const fPrac = g.finalPractical !== undefined ? g.finalPractical : '';
         
-        // Dynamically recalculate totals in case quizzes changed
-        const form = (parseFloat(qz) || 0) + (parseFloat(asn) || 0) + (parseFloat(lab) || 0) + (parseFloat(prac) || 0) + (parseFloat(rep) || 0) + (parseFloat(sem) || 0);
+        // حساب الأربع حقول قبل المد (من 40) + المد (من 10) ليصبح السعي من 50
+        const form40 = calculateFormative40(qz, asn, lab, prac, rep, sem);
+        const midVal = parseFloat(mid) || 0;
+        const form = parseFloat((form40 + midVal).toFixed(2));
         g.formative = form;
         const formStatus = form >= 25 ? 'ناجح' : 'راسب';
         g.formativeStatus = formStatus;
         const formStatusColor = form >= 25 ? 'green' : 'red';
         
-        const final = form + (parseFloat(mid) || 0) + (parseFloat(fTheo) || 0) + (parseFloat(fPrac) || 0);
+        const final = parseFloat((form + (parseFloat(fTheo) || 0) + (parseFloat(fPrac) || 0)).toFixed(2));
         g.final = final;
         
         const status = final >= 50 ? 'ناجح' : 'راسب';
@@ -1907,13 +1920,15 @@ window.updateGrade = function(studentId, field, value) {
     const val = value === '' ? '' : (parseFloat(value) || 0);
     state.grades[studentId][field] = val;
     
-    // Auto calculate totals
+    // Auto calculate totals (4 fields before mid + mid = out of 50)
     const g = state.grades[studentId];
-    const formative = (parseFloat(g.quizzes) || 0) + (parseFloat(g.assignment) || 0) + (parseFloat(g.lab) || 0) + (parseFloat(g.practical) || 0) + (parseFloat(g.report) || 0) + (parseFloat(g.seminar) || 0);
+    const form40 = calculateFormative40(g.quizzes, g.assignment, g.lab, g.practical, g.report, g.seminar);
+    const midVal = parseFloat(g.midExam) || 0;
+    const formative = parseFloat((form40 + midVal).toFixed(2));
     g.formative = formative;
     g.formativeStatus = formative >= 25 ? 'ناجح' : 'راسب';
     
-    const final = formative + (parseFloat(g.midExam) || 0) + (parseFloat(g.finalTheoretical) || 0) + (parseFloat(g.finalPractical) || 0);
+    const final = parseFloat((formative + (parseFloat(g.finalTheoretical) || 0) + (parseFloat(g.finalPractical) || 0)).toFixed(2));
     g.final = final;
     
     g.status = final >= 50 ? 'ناجح' : 'راسب';

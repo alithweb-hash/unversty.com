@@ -247,12 +247,14 @@ class ExcelService {
             const rep = g.report !== undefined ? g.report : '';
             const sem = g.seminar !== undefined ? g.seminar : '';
             const form = g.formative !== undefined ? g.formative : 0;
+            const formStatus = form >= 25 ? 'ناجح' : 'راسب';
+            const formStatusColor = form >= 25 ? '#16a34a' : '#dc2626';
             
             const mid = g.midExam !== undefined ? g.midExam : '';
             const fTheo = g.finalTheoretical !== undefined ? g.finalTheoretical : '';
             const fPrac = g.finalPractical !== undefined ? g.finalPractical : '';
             const final = g.final !== undefined ? g.final : 0;
-            const status = g.status || (final >= 50 ? 'ناجح' : 'راسب');
+            const status = final >= 50 ? 'ناجح' : 'راسب';
             const notes = g.notes || '';
             const statusColor = final >= 50 ? '#16a34a' : '#dc2626';
 
@@ -266,7 +268,7 @@ class ExcelService {
                     <td style="border: 1px solid #000;">${prac}</td>
                     <td style="border: 1px solid #000;">${rep}</td>
                     <td style="border: 1px solid #000;">${sem}</td>
-                    <td style="border: 1px solid #000; background-color: #dcfce7; font-weight: bold;">${form}</td>
+                    <td style="border: 1px solid #000; background-color: #dcfce7; font-weight: bold;">${form} <span style="color: ${formStatusColor};">(${formStatus})</span></td>
                     
                     <td style="border: 1px solid #000;">${mid}</td>
                     <td style="border: 1px solid #000;">${fTheo}</td>
@@ -281,7 +283,7 @@ class ExcelService {
             tsvLines.push([
                 index + 1,
                 student.name,
-                qz, asn, lab, prac, rep, sem, form,
+                qz, asn, lab, prac, rep, sem, `${form} (${formStatus})`,
                 mid, fTheo, fPrac,
                 final, notes, status
             ].join('\t'));
