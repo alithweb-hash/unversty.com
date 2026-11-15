@@ -244,24 +244,18 @@ function setupEvents() {
             state.students.forEach(stu => {
                 if (!state.grades[stu.id]) state.grades[stu.id] = {};
                 let shortQuizzes = [];
-                let sum = 0;
-                let validCount = 0;
                 for (let i = 1; i <= state.numQuizzes; i++) {
                     const input = document.querySelector(`.quiz-input[data-stu="${stu.id}"][data-quiz="${i}"]`);
                     const valStr = input ? input.value.trim() : '';
                     const val = (valStr !== '' && !isNaN(parseFloat(valStr))) ? parseFloat(valStr) : '';
                     shortQuizzes.push(val);
-                    if (val !== '') {
-                        sum += val;
-                        validCount++;
-                    }
                 }
                 state.grades[stu.id].shortQuizzes = shortQuizzes;
-                const average = validCount > 0 ? sum / validCount : 0;
-                state.grades[stu.id].quizzes = Math.round(average);
+                const { roundedAvg } = calculateTopQuizzes(shortQuizzes);
+                state.grades[stu.id].quizzes = roundedAvg;
             });
             await window.dbService.saveGrades(state.currentSubject, state.grades);
-            showToast('تم حفظ الاختبارات وتحديث درجات الاختبارات بنجاح', 'success');
+            showToast('تم حفظ الاختبارات وحساب معدل أعلى 3 اختبارات بنجاح', 'success');
             renderQuizzes();
         } catch(error) {
             console.error(error);
@@ -976,6 +970,21 @@ function renderAssignments() {
     });
 }
 
+// حساب مجموع ومعدل أعلى 3 اختبارات قصيرة فقط وترك الأقل درجة (القسمة دائماً على 3)
+function calculateTopQuizzes(quizValues) {
+    const validScores = [];
+    (quizValues || []).forEach(val => {
+        if (val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val))) {
+            validScores.push(parseFloat(val));
+        }
+    });
+    validScores.sort((a, b) => b - a);
+    const topScores = validScores.slice(0, 3);
+    const sum = topScores.reduce((acc, curr) => acc + curr, 0);
+    const avg = topScores.length > 0 ? sum / 3 : 0;
+    return { sum, avg, roundedAvg: Math.round(avg) };
+}
+
 function renderQuizzes() {
     if (!els.quizzesTableHeader || !els.quizzesTableBody) return;
     
@@ -987,8 +996,8 @@ function renderQuizzes() {
         headerHtml += `<th>الاختبار ${i}</th>`;
     }
     headerHtml += `
-        <th style="background-color: #dcfce7;">المجموع</th>
-        <th style="background-color: #dbeafe;">المعدل</th>
+        <th style="background-color: #dcfce7;">مجموع أعلى 3</th>
+        <th style="background-color: #dbeafe;">المعدل (أعلى 3)</th>
     `;
     els.quizzesTableHeader.innerHTML = headerHtml;
     
@@ -1008,16 +1017,11 @@ function renderQuizzes() {
         
         const grades = state.grades[stu.id] || {};
         const shortQuizzes = grades.shortQuizzes || [];
-        let sum = 0;
-        let validCount = 0;
+        const displayedQuizzes = [];
         
         for (let i = 1; i <= state.numQuizzes; i++) {
             let val = (shortQuizzes[i-1] !== undefined && shortQuizzes[i-1] !== null && shortQuizzes[i-1] !== '') ? shortQuizzes[i-1] : '';
-            
-            if (val !== '') {
-                sum += parseFloat(val);
-                validCount++;
-            }
+            displayedQuizzes.push(val);
             html += `
                 <td>
                     <input type="number" class="modern-input quiz-input" 
@@ -1028,10 +1032,10 @@ function renderQuizzes() {
             `;
         }
         
-        const avg = validCount > 0 ? sum / validCount : 0;
+        const { sum, roundedAvg } = calculateTopQuizzes(displayedQuizzes);
         html += `
             <td style="font-weight: bold; color: #166534; background-color: #dcfce7;" id="quiz-sum-${stu.id}">${sum}</td>
-            <td style="font-weight: bold; color: #1e40af; background-color: #dbeafe;" id="quiz-avg-${stu.id}">${Math.round(avg)}</td>
+            <td style="font-weight: bold; color: #1e40af; background-color: #dbeafe;" id="quiz-avg-${stu.id}">${roundedAvg}</td>
         `;
         
         tr.innerHTML = html;
@@ -1043,49 +1047,41 @@ function renderQuizzes() {
         // Immediate UI update
         input.addEventListener('input', (e) => {
             const stuId = e.target.getAttribute('data-stu');
-            let tempSum = 0;
-            let validCount = 0;
+            const currentQuizzes = [];
             for (let i = 1; i <= state.numQuizzes; i++) {
                 const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
                 const valStr = qInput ? qInput.value.trim() : '';
                 if (valStr !== '' && !isNaN(parseFloat(valStr))) {
-                    tempSum += parseFloat(valStr);
-                    validCount++;
+                    currentQuizzes.push(parseFloat(valStr));
                 }
             }
-            const tempAvg = validCount > 0 ? tempSum / validCount : 0;
+            const { sum: tempSum, roundedAvg } = calculateTopQuizzes(currentQuizzes);
             const sumEl = document.getElementById(`quiz-sum-${stuId}`);
             const avgEl = document.getElementById(`quiz-avg-${stuId}`);
             if (sumEl) sumEl.innerText = tempSum;
-            if (avgEl) avgEl.innerText = Math.round(tempAvg);
+            if (avgEl) avgEl.innerText = roundedAvg;
         });
 
         // Auto-save to DB on change (when input loses focus)
         input.addEventListener('change', async (e) => {
             const stuId = e.target.getAttribute('data-stu');
-            let tempSum = 0;
-            let validCount = 0;
             let shortQuizzes = [];
             for (let i = 1; i <= state.numQuizzes; i++) {
                 const qInput = document.querySelector(`.quiz-input[data-stu="${stuId}"][data-quiz="${i}"]`);
                 const valStr = qInput ? qInput.value.trim() : '';
                 const val = (valStr !== '' && !isNaN(parseFloat(valStr))) ? parseFloat(valStr) : '';
                 shortQuizzes.push(val);
-                if (val !== '') {
-                    tempSum += val;
-                    validCount++;
-                }
             }
-            const tempAvg = validCount > 0 ? tempSum / validCount : 0;
+            const { roundedAvg } = calculateTopQuizzes(shortQuizzes);
             
             if (!state.grades[stuId]) state.grades[stuId] = {};
             state.grades[stuId].shortQuizzes = shortQuizzes;
             
             // This will automatically calculate formative/final totals and save to database
             if (window.updateGrade) {
-                window.updateGrade(stuId, 'quizzes', Math.round(tempAvg));
+                window.updateGrade(stuId, 'quizzes', roundedAvg);
             } else {
-                state.grades[stuId].quizzes = Math.round(tempAvg);
+                state.grades[stuId].quizzes = roundedAvg;
                 if (state.currentSubject) {
                     await window.dbService.saveGrades(state.currentSubject, state.grades);
                 }
@@ -1823,15 +1819,8 @@ function renderGrades() {
         let qz = g.quizzes !== undefined ? g.quizzes : '';
         
         if (g.shortQuizzes && Array.isArray(g.shortQuizzes)) {
-            let validCount = 0;
-            let sum = 0;
-            g.shortQuizzes.forEach(val => {
-                if (val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val))) {
-                    sum += parseFloat(val);
-                    validCount++;
-                }
-            });
-            qz = validCount > 0 ? Math.round(sum / validCount) : 0;
+            const { roundedAvg } = calculateTopQuizzes(g.shortQuizzes);
+            qz = roundedAvg;
             g.quizzes = qz; // Update in memory so other calculations use the correct value
         }
 
@@ -1872,10 +1861,10 @@ function renderGrades() {
         const final = form + (parseFloat(mid) || 0) + (parseFloat(fTheo) || 0) + (parseFloat(fPrac) || 0);
         g.final = final;
         
-        const status = final >= 50 ? 'ناجح' : 'راسب';
+        const status = final >= 25 ? 'ناجح' : 'راسب';
         g.status = status;
         
-        const statusColor = final >= 50 ? 'green' : 'red';
+        const statusColor = final >= 25 ? 'green' : 'red';
         const notes = g.notes || '';
         
         html += `
@@ -1920,7 +1909,7 @@ window.updateGrade = function(studentId, field, value) {
     const final = formative + (parseFloat(g.midExam) || 0) + (parseFloat(g.finalTheoretical) || 0) + (parseFloat(g.finalPractical) || 0);
     g.final = final;
     
-    g.status = final >= 50 ? 'ناجح' : 'راسب';
+    g.status = final >= 25 ? 'ناجح' : 'راسب';
     
     // Update DOM instantly
     const tr = document.getElementById(`grade-row-${studentId}`);
@@ -1929,7 +1918,7 @@ window.updateGrade = function(studentId, field, value) {
         tr.querySelector('.final-total').textContent = final;
         const statusEl = tr.querySelector('.status-note');
         statusEl.textContent = g.status;
-        statusEl.style.color = final >= 50 ? 'green' : 'red';
+        statusEl.style.color = final >= 25 ? 'green' : 'red';
     }
     
     // Debounce save
