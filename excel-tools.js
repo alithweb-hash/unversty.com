@@ -210,7 +210,6 @@ class ExcelService {
                     <th colspan="3" style="border: 1px solid #000; background-color: #ffedd5; color: #9a3412;">Summative</th>
                     <th rowspan="3" style="border: 1px solid #000; background-color: #dbeafe; color: #1e40af;">Final (100%)</th>
                     <th rowspan="3" style="border: 1px solid #000;">الملاحظات</th>
-                    <th rowspan="3" style="border: 1px solid #000;">النتيجة</th>
                 </tr>
                 <tr>
                     <!-- Formative -->
@@ -235,7 +234,7 @@ class ExcelService {
 
         let tsvLines = [];
         // TSV Headers
-        tsvLines.push(['ت', 'اسم الطالب', 'Quizzes 10%', 'Assignment 10%', 'Lab 10%', 'Practical 10%', 'Report 10%', 'Seminar 10%', 'Formative (40%)', 'Mid Exam (10%)', 'Theoretical (30%)', 'Practical (20%)', 'Final (100%)', 'الملاحظات', 'النتيجة'].join('\t'));
+        tsvLines.push(['ت', 'اسم الطالب', 'Quizzes 10%', 'Assignment 10%', 'Lab 10%', 'Practical 10%', 'Report 10%', 'Seminar 10%', 'Formative (40%)', 'Mid Exam (10%)', 'Theoretical (30%)', 'Practical (20%)', 'Final (100%)', 'الملاحظات'].join('\t'));
 
         students.forEach((student, index) => {
             const g = grades[student.id] || {};
@@ -247,16 +246,18 @@ class ExcelService {
             const rep = g.report !== undefined ? g.report : '';
             const sem = g.seminar !== undefined ? g.seminar : '';
             const form = g.formative !== undefined ? g.formative : 0;
-            const formStatus = form >= 25 ? 'ناجح' : 'راسب';
-            const formStatusColor = form >= 25 ? '#16a34a' : '#dc2626';
+            const formStyle = form < 25
+                ? 'background-color: #fecaca; color: #dc2626;'
+                : 'background-color: #dcfce7;';
             
             const mid = g.midExam !== undefined ? g.midExam : '';
             const fTheo = g.finalTheoretical !== undefined ? g.finalTheoretical : '';
             const fPrac = g.finalPractical !== undefined ? g.finalPractical : '';
             const final = g.final !== undefined ? g.final : 0;
-            const status = final >= 50 ? 'ناجح' : 'راسب';
+            const finalStyle = final < 50
+                ? 'background-color: #fecaca; color: #dc2626;'
+                : 'background-color: #dbeafe;';
             const notes = g.notes || '';
-            const statusColor = final >= 50 ? '#16a34a' : '#dc2626';
 
             html += `
                 <tr>
@@ -268,24 +269,23 @@ class ExcelService {
                     <td style="border: 1px solid #000;">${prac}</td>
                     <td style="border: 1px solid #000;">${rep}</td>
                     <td style="border: 1px solid #000;">${sem}</td>
-                    <td style="border: 1px solid #000; background-color: #dcfce7; font-weight: bold;">${form} <span style="color: ${formStatusColor};">(${formStatus})</span></td>
+                    <td style="border: 1px solid #000; ${formStyle} font-weight: bold;">${form}</td>
                     
                     <td style="border: 1px solid #000;">${mid}</td>
                     <td style="border: 1px solid #000;">${fTheo}</td>
                     <td style="border: 1px solid #000;">${fPrac}</td>
                     
-                    <td style="border: 1px solid #000; background-color: #dbeafe; font-weight: bold;">${final}</td>
+                    <td style="border: 1px solid #000; ${finalStyle} font-weight: bold;">${final}</td>
                     <td style="border: 1px solid #000;">${notes}</td>
-                    <td style="border: 1px solid #000; color: ${statusColor}; font-weight: bold;">${status}</td>
                 </tr>
             `;
 
             tsvLines.push([
                 index + 1,
                 student.name,
-                qz, asn, lab, prac, rep, sem, `${form} (${formStatus})`,
+                qz, asn, lab, prac, rep, sem, form,
                 mid, fTheo, fPrac,
-                final, notes, status
+                final, notes
             ].join('\t'));
         });
 
